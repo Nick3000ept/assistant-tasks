@@ -409,7 +409,7 @@ function openTaskModal(id) {
   }
   if (task.run_status) {
     const div = document.createElement("div");
-    const labels = { queued: "В очереди на авто-выполнение", in_progress: "Выполняется", pr_opened: "Готово: открыт PR", failed: "Ошибка автозапуска", needs_clarification: "Нужны уточнения" };
+    const labels = { queued: "В очереди на авто-выполнение", in_progress: "Выполняется", pr_opened: "Готово: открыт PR", sent: "Готово: отчёт отправлен", failed: "Ошибка автозапуска", needs_clarification: "Нужны уточнения" };
     const label = labels[task.run_status] || task.run_status;
     if (task.run_result && /^https?:\/\//.test(task.run_result.trim())) {
       div.append(label + ": ");
@@ -522,7 +522,7 @@ function runBadge(t) {
   if (!t.auto_run && !t.run_status) return null;
   const badge = document.createElement("span");
   badge.className = "run-badge";
-  const labels = { queued: "В очереди на авто-выполнение", in_progress: "Выполняется", pr_opened: "Готово: открыт PR", failed: "Ошибка", needs_clarification: "Нужны уточнения" };
+  const labels = { queued: "В очереди на авто-выполнение", in_progress: "Выполняется", pr_opened: "Готово: открыт PR", sent: "Готово: отчёт отправлен", failed: "Ошибка", needs_clarification: "Нужны уточнения" };
   const label = labels[t.run_status] || t.run_status || "В очереди";
   if (t.run_result && /^https?:\/\//.test(t.run_result.trim())) {
     badge.textContent = label + ": ";
