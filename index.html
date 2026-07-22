@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Задачи — Assistant</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #f5f5f7;
+    --card: #ffffff;
+    --text: #1c1c1e;
+    --muted: #6e6e73;
+    --border: #e3e3e6;
+    --accent: #0a84ff;
+    --done: #34c759;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1c1c1e;
+      --card: #2c2c2e;
+      --text: #f2f2f7;
+      --muted: #9a9a9e;
+      --border: #3a3a3c;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding: 16px;
+  }
+  h1 {
+    font-size: 20px;
+    margin: 0 0 16px;
+  }
+  .meeting-group {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    margin-bottom: 14px;
+    overflow: hidden;
+  }
+  .meeting-header {
+    padding: 12px 16px;
+    font-weight: 600;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .meeting-header .date {
+    font-weight: 400;
+    color: var(--muted);
+    font-size: 13px;
+  }
+  .task-row {
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+    font-size: 15px;
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+  }
+  .task-row:last-child { border-bottom: none; }
+  .task-row .time {
+    color: var(--muted);
+    font-size: 12px;
+    white-space: nowrap;
+  }
+  .status-done { text-decoration: line-through; color: var(--muted); }
+  .empty, .loading, .error {
+    color: var(--muted);
+    padding: 24px 4px;
+    text-align: center;
+  }
+  .error { color: #ff453a; }
+</style>
+</head>
+<body>
+  <h1>Задачи</h1>
+  <div id="content" class="loading">Загрузка…</div>
+
+<script>
+const API_URL = "https://hub.xn--80aamvb5b.team/webhook/assistant-tasks";
+
+function getToken() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get("t") || "";
+}
+
+function formatDate(iso) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  return d.toLocaleString("ru-RU", {
+    timeZone: "Europe/Moscow",
+    day: "2-digit", month: "2-digit", year: "numeric",
+    hour: "2-digit", minute: "2-digit"
+  });
+}
+
+function formatTime(iso) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  return d.toLocaleString("ru-RU", {
+    timeZone: "Europe/Moscow",
+    hour: "2-digit", minute: "2-digit"
+  });
+}
+
+async function loadTasks() {
+  const content = document.getElementById("content");
+  const token = getToken();
+  if (!token) {
+    content.className = "error";
+    content.textContent = "Нет токена доступа в ссылке (?t=...).";
+    return;
+  }
+  try {
+    const res = await fetch(`${API_URL}?t=${encodeURIComponent(token)}`);
+    if (!res.ok) {
+      content.className = "error";
+      content.textContent = res.status === 403
+        ? "Неверный токен доступа."
+        : `Ошибка загрузки (${res.status}).`;
+      return;
+    }
+    const tasks = await res.json();
+    render(tasks);
+  } catch (e) {
+    content.className = "error";
+    content.textContent = "Не удалось связаться с сервером.";
+  }
+}
+
+function render(tasks) {
+  const content = document.getElementById("content");
+  if (!tasks.length) {
+    content.className = "empty";
+    content.textContent = "Задач пока нет.";
+    return;
+  }
+
+  const groups = new Map();
+  const noMeetingKey = "__none__";
+  for (const t of tasks) {
+    const key = t.meeting_name || noMeetingKey;
+    if (!groups.has(key)) groups.set(key, { name: t.meeting_name, date: t.meeting_date, tasks: [] });
+    groups.get(key).tasks.push(t);
+  }
+
+  content.className = "";
+  content.innerHTML = "";
+  for (const group of groups.values()) {
+    const card = document.createElement("div");
+    card.className = "meeting-group";
+
+    const header = document.createElement("div");
+    header.className = "meeting-header";
+    const title = document.createElement("span");
+    title.textContent = group.name || "Без совещания";
+    header.appendChild(title);
+    if (group.date) {
+      const date = document.createElement("span");
+      date.className = "date";
+      date.textContent = formatDate(group.date);
+      header.appendChild(date);
+    }
+    card.appendChild(header);
+
+    for (const t of group.tasks) {
+      const row = document.createElement("div");
+      row.className = "task-row";
+      const time = document.createElement("span");
+      time.className = "time";
+      time.textContent = formatTime(t.created_at);
+      const text = document.createElement("span");
+      if (t.status === "done") text.className = "status-done";
+      text.textContent = t.text;
+      row.appendChild(time);
+      row.appendChild(text);
+      card.appendChild(row);
+    }
+    content.appendChild(card);
+  }
+}
+
+loadTasks();
+</script>
+</body>
+</html>
