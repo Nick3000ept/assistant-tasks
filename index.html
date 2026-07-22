@@ -107,16 +107,6 @@
     padding: 2px 4px;
   }
   .del-btn:hover { color: var(--danger); }
-  .auto-btn {
-    border: none;
-    background: none;
-    font-size: 15px;
-    cursor: pointer;
-    line-height: 1;
-    padding: 2px 4px;
-    opacity: 0.5;
-  }
-  .auto-btn.active { opacity: 1; }
   .run-badge {
     display: block;
     font-size: 11px;
@@ -124,6 +114,75 @@
     margin-top: 2px;
   }
   .run-badge a { color: var(--accent); }
+  .task-row .text, .card .card-text { cursor: pointer; }
+
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.4);
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    z-index: 100;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--card);
+    border-radius: 12px;
+    padding: 20px;
+    width: 100%;
+    max-width: 480px;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+  .modal h2 { font-size: 16px; margin: 0 0 14px; }
+  .modal label {
+    display: block;
+    font-size: 12px;
+    color: var(--muted);
+    margin: 12px 0 4px;
+  }
+  .modal textarea, .modal select {
+    width: 100%;
+    font: inherit;
+    color: inherit;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 10px;
+  }
+  .modal textarea { resize: vertical; min-height: 44px; }
+  .modal .meta {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 12px;
+    line-height: 1.6;
+  }
+  .modal .meta a { color: var(--accent); }
+  .modal .auto-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 12px;
+    font-size: 14px;
+  }
+  .modal .actions {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    margin-top: 18px;
+  }
+  .modal button {
+    border: none;
+    border-radius: 8px;
+    padding: 9px 16px;
+    font-size: 14px;
+    cursor: pointer;
+  }
+  .modal .save-btn { background: var(--accent); color: #fff; }
+  .modal .close-btn { background: var(--col-bg); color: var(--text); }
+  .modal .delete-btn { background: none; color: var(--danger); }
 
   .empty, .loading, .error {
     color: var(--muted);
@@ -187,6 +246,38 @@
 
   <div id="view-board" class="view">
     <div id="board" class="board"></div>
+  </div>
+
+  <div id="modal-overlay" class="modal-overlay">
+    <div class="modal">
+      <h2>Задача</h2>
+      <label for="modal-text">Название работы</label>
+      <textarea id="modal-text"></textarea>
+
+      <label for="modal-status">Статус</label>
+      <select id="modal-status">
+        <option value="open">Открыта</option>
+        <option value="in_progress">В работе</option>
+        <option value="done">Готово</option>
+      </select>
+
+      <label for="modal-context">Контекст для автовыполнения (облачный агент)</label>
+      <textarea id="modal-context" placeholder="Например: Проект СБ3_Шахматка. Сделать шрифт в аналитике крупнее."></textarea>
+      <div class="auto-row">
+        <input type="checkbox" id="modal-autorun">
+        <label for="modal-autorun" style="margin:0;">Выполнить автоматически ночью</label>
+      </div>
+
+      <div id="modal-meta" class="meta"></div>
+
+      <div class="actions">
+        <button class="delete-btn" id="modal-delete">Удалить</button>
+        <div style="display:flex; gap:8px;">
+          <button class="close-btn" id="modal-close">Отмена</button>
+          <button class="save-btn" id="modal-save">Сохранить</button>
+        </div>
+      </div>
+    </div>
   </div>
 
 <script>
@@ -254,31 +345,97 @@ async function deleteTask(id) {
   renderBoard(tasksCache);
 }
 
-async function toggleAutoRun(id) {
+let modalTaskId = null;
+
+function openTaskModal(id) {
   const task = tasksCache.find((t) => t.id === id);
   if (!task) return;
+  modalTaskId = id;
 
-  if (task.auto_run) {
-    if (!confirm('Снять пометку "выполнить автоматически"?')) return;
-    await fetch(`${API_BASE}/assistant-tasks-mark?t=${encodeURIComponent(TOKEN)}&id=${id}&auto_run=false&context=`);
-    task.auto_run = false;
-    task.run_status = null;
-    task.run_result = null;
-  } else {
-    const context = prompt(
-      "Опишите весь контекст для выполнения (какой проект, что именно сделать) — облачный агент увидит только этот текст:",
-      task.context || ""
-    );
-    if (context === null || context.trim() === "") return;
-    await fetch(`${API_BASE}/assistant-tasks-mark?t=${encodeURIComponent(TOKEN)}&id=${id}&auto_run=true&context=${encodeURIComponent(context)}`);
-    task.auto_run = true;
-    task.context = context;
-    task.run_status = "queued";
-    task.run_result = null;
+  document.getElementById("modal-text").value = task.text || "";
+  document.getElementById("modal-status").value = task.status || "open";
+  document.getElementById("modal-context").value = task.context || "";
+  document.getElementById("modal-autorun").checked = !!task.auto_run;
+
+  const meta = document.getElementById("modal-meta");
+  meta.innerHTML = "";
+  const lines = [];
+  lines.push(`Создана: ${formatDate(task.created_at)}`);
+  if (task.meeting_name) lines.push(`Совещание: ${task.meeting_name} (${formatDate(task.meeting_date)})`);
+  if (task.done_at) lines.push(`Выполнена: ${formatDate(task.done_at)}`);
+  for (const line of lines) {
+    const div = document.createElement("div");
+    div.textContent = line;
+    meta.appendChild(div);
   }
+  if (task.run_status) {
+    const div = document.createElement("div");
+    const labels = { queued: "В очереди на авто-выполнение", in_progress: "Выполняется", pr_opened: "Готово: открыт PR", failed: "Ошибка автозапуска", needs_clarification: "Нужны уточнения" };
+    const label = labels[task.run_status] || task.run_status;
+    if (task.run_result && /^https?:\/\//.test(task.run_result.trim())) {
+      div.append(label + ": ");
+      const a = document.createElement("a");
+      a.href = task.run_result.trim();
+      a.target = "_blank";
+      a.textContent = task.run_result.trim();
+      div.appendChild(a);
+    } else {
+      div.textContent = label + (task.run_result ? ": " + task.run_result : "");
+    }
+    meta.appendChild(div);
+  }
+
+  document.getElementById("modal-overlay").classList.add("open");
+}
+
+function closeModal() {
+  document.getElementById("modal-overlay").classList.remove("open");
+  modalTaskId = null;
+}
+
+async function saveModal() {
+  const id = modalTaskId;
+  const task = tasksCache.find((t) => t.id === id);
+  if (!task) return closeModal();
+
+  const newText = document.getElementById("modal-text").value.trim();
+  const newStatus = document.getElementById("modal-status").value;
+  const newContext = document.getElementById("modal-context").value;
+  const newAutoRun = document.getElementById("modal-autorun").checked;
+
+  const requests = [];
+  if (newText && newText !== task.text) {
+    requests.push(fetch(`${API_BASE}/assistant-tasks-edit?t=${encodeURIComponent(TOKEN)}&id=${id}&text=${encodeURIComponent(newText)}`));
+    task.text = newText;
+  }
+  if (newStatus !== task.status) {
+    requests.push(fetch(`${API_BASE}/assistant-tasks-status?t=${encodeURIComponent(TOKEN)}&id=${id}&status=${newStatus}`));
+    task.status = newStatus;
+  }
+  if (newContext !== (task.context || "") || newAutoRun !== !!task.auto_run) {
+    requests.push(fetch(`${API_BASE}/assistant-tasks-mark?t=${encodeURIComponent(TOKEN)}&id=${id}&auto_run=${newAutoRun}&context=${encodeURIComponent(newContext)}`));
+    task.context = newContext;
+    task.auto_run = newAutoRun;
+    task.run_status = newAutoRun ? (task.run_status || "queued") : null;
+    task.run_result = newAutoRun ? task.run_result : null;
+  }
+
+  closeModal();
   renderList(tasksCache);
   renderBoard(tasksCache);
+  await Promise.all(requests);
 }
+
+document.getElementById("modal-save").addEventListener("click", saveModal);
+document.getElementById("modal-close").addEventListener("click", closeModal);
+document.getElementById("modal-overlay").addEventListener("click", (e) => {
+  if (e.target.id === "modal-overlay") closeModal();
+});
+document.getElementById("modal-delete").addEventListener("click", async () => {
+  const id = modalTaskId;
+  closeModal();
+  if (id != null) await deleteTask(id);
+});
 
 function runBadge(t) {
   if (!t.auto_run && !t.run_status) return null;
@@ -351,21 +508,17 @@ function renderList(tasks) {
       const textWrap = document.createElement("span");
       textWrap.className = "text";
       textWrap.textContent = t.text;
+      textWrap.title = "Открыть задачу";
+      textWrap.addEventListener("click", () => openTaskModal(t.id));
       const badge = runBadge(t);
       if (badge) textWrap.appendChild(badge);
-      const auto = document.createElement("button");
-      auto.className = "auto-btn" + (t.auto_run ? " active" : "");
-      auto.textContent = "🤖";
-      auto.title = t.auto_run ? "Помечено для авто-выполнения — нажмите, чтобы снять" : "Поставить на авто-выполнение (облачный агент)";
-      auto.addEventListener("click", () => toggleAutoRun(t.id));
       const del = document.createElement("button");
       del.className = "del-btn";
       del.textContent = "✕";
       del.title = "Удалить";
-      del.addEventListener("click", () => deleteTask(t.id));
+      del.addEventListener("click", (e) => { e.stopPropagation(); deleteTask(t.id); });
       row.appendChild(time);
       row.appendChild(textWrap);
-      row.appendChild(auto);
       row.appendChild(del);
       card.appendChild(row);
     }
@@ -395,6 +548,8 @@ function renderBoard(tasks) {
       const textWrap = document.createElement("div");
       textWrap.className = "card-text";
       textWrap.textContent = t.text;
+      textWrap.title = "Открыть задачу";
+      textWrap.addEventListener("click", () => openTaskModal(t.id));
       if (t.meeting_name) {
         const tag = document.createElement("span");
         tag.className = "meeting-tag";
@@ -404,20 +559,13 @@ function renderBoard(tasks) {
       const badge = runBadge(t);
       if (badge) textWrap.appendChild(badge);
 
-      const auto = document.createElement("button");
-      auto.className = "auto-btn" + (t.auto_run ? " active" : "");
-      auto.textContent = "🤖";
-      auto.title = t.auto_run ? "Помечено для авто-выполнения — нажмите, чтобы снять" : "Поставить на авто-выполнение (облачный агент)";
-      auto.addEventListener("click", () => toggleAutoRun(t.id));
-
       const del = document.createElement("button");
       del.className = "del-btn";
       del.textContent = "✕";
       del.title = "Удалить";
-      del.addEventListener("click", () => deleteTask(t.id));
+      del.addEventListener("click", (e) => { e.stopPropagation(); deleteTask(t.id); });
 
       card.appendChild(textWrap);
-      card.appendChild(auto);
       card.appendChild(del);
 
       card.addEventListener("dragstart", () => {
