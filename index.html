@@ -242,6 +242,20 @@
     margin-top: 4px;
   }
   .column.drag-over { outline: 2px dashed var(--accent); outline-offset: -2px; }
+
+  .add-task-btn {
+    display: block;
+    width: 100%;
+    margin-top: 16px;
+    padding: 12px;
+    border: none;
+    border-radius: 10px;
+    background: var(--accent);
+    color: #fff;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+  }
 </style>
 </head>
 <body>
@@ -259,9 +273,11 @@
     <div id="board" class="board"></div>
   </div>
 
+  <button id="add-task-btn" class="add-task-btn">+ Добавить задачу</button>
+
   <div id="modal-overlay" class="modal-overlay">
     <div class="modal">
-      <h2>Задача</h2>
+      <h2 id="modal-title">Задача</h2>
       <label for="modal-text">Название работы</label>
       <textarea id="modal-text"></textarea>
 
@@ -357,12 +373,16 @@ async function deleteTask(id) {
 }
 
 let modalTaskId = null;
+let modalIsNew = false;
 
 function openTaskModal(id) {
   const task = tasksCache.find((t) => t.id === id);
   if (!task) return;
   modalTaskId = id;
+  modalIsNew = false;
 
+  document.getElementById("modal-title").textContent = "Задача";
+  document.getElementById("modal-delete").style.display = "";
   document.getElementById("modal-text").value = task.text || "";
   document.getElementById("modal-status").value = task.status || "open";
   document.getElementById("modal-context").value = task.context || "";
@@ -399,20 +419,57 @@ function openTaskModal(id) {
   document.getElementById("modal-overlay").classList.add("open");
 }
 
+function openNewTaskModal() {
+  modalTaskId = null;
+  modalIsNew = true;
+
+  document.getElementById("modal-title").textContent = "Новая задача";
+  document.getElementById("modal-delete").style.display = "none";
+  document.getElementById("modal-text").value = "";
+  document.getElementById("modal-status").value = "open";
+  document.getElementById("modal-context").value = "";
+  document.getElementById("modal-autorun").checked = false;
+  document.getElementById("modal-meta").innerHTML = "";
+
+  document.getElementById("modal-overlay").classList.add("open");
+}
+
 function closeModal() {
   document.getElementById("modal-overlay").classList.remove("open");
   modalTaskId = null;
 }
 
 async function saveModal() {
-  const id = modalTaskId;
-  const task = tasksCache.find((t) => t.id === id);
-  if (!task) return closeModal();
-
   const newText = document.getElementById("modal-text").value.trim();
   const newStatus = document.getElementById("modal-status").value;
   const newContext = document.getElementById("modal-context").value;
   const newAutoRun = document.getElementById("modal-autorun").checked;
+
+  if (modalIsNew) {
+    if (!newText) return closeModal();
+    closeModal();
+    const res = await fetch(`${API_BASE}/assistant-tasks-create?t=${encodeURIComponent(TOKEN)}&text=${encodeURIComponent(newText)}`);
+    const [created] = await res.json();
+    if (!created) return;
+    tasksCache.unshift(created);
+    if (newStatus !== "open") {
+      await fetch(`${API_BASE}/assistant-tasks-status?t=${encodeURIComponent(TOKEN)}&id=${created.id}&status=${newStatus}`);
+      created.status = newStatus;
+    }
+    if (newContext.trim() || newAutoRun) {
+      await fetch(`${API_BASE}/assistant-tasks-mark?t=${encodeURIComponent(TOKEN)}&id=${created.id}&auto_run=${newAutoRun}&context=${encodeURIComponent(newContext)}`);
+      created.context = newContext;
+      created.auto_run = newAutoRun;
+      created.run_status = newAutoRun ? "queued" : null;
+    }
+    renderList(tasksCache);
+    renderBoard(tasksCache);
+    return;
+  }
+
+  const id = modalTaskId;
+  const task = tasksCache.find((t) => t.id === id);
+  if (!task) return closeModal();
 
   const requests = [];
   if (newText && newText !== task.text) {
@@ -437,6 +494,7 @@ async function saveModal() {
   await Promise.all(requests);
 }
 
+document.getElementById("add-task-btn").addEventListener("click", openNewTaskModal);
 document.getElementById("modal-save").addEventListener("click", saveModal);
 document.getElementById("modal-close").addEventListener("click", closeModal);
 document.getElementById("modal-overlay").addEventListener("click", (e) => {
