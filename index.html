@@ -107,6 +107,23 @@
     padding: 2px 4px;
   }
   .del-btn:hover { color: var(--danger); }
+  .auto-btn {
+    border: none;
+    background: none;
+    font-size: 15px;
+    cursor: pointer;
+    line-height: 1;
+    padding: 2px 4px;
+    opacity: 0.5;
+  }
+  .auto-btn.active { opacity: 1; }
+  .run-badge {
+    display: block;
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+  .run-badge a { color: var(--accent); }
 
   .empty, .loading, .error {
     color: var(--muted);
@@ -237,6 +254,51 @@ async function deleteTask(id) {
   renderBoard(tasksCache);
 }
 
+async function toggleAutoRun(id) {
+  const task = tasksCache.find((t) => t.id === id);
+  if (!task) return;
+
+  if (task.auto_run) {
+    if (!confirm('Снять пометку "выполнить автоматически"?')) return;
+    await fetch(`${API_BASE}/assistant-tasks-mark?t=${encodeURIComponent(TOKEN)}&id=${id}&auto_run=false&context=`);
+    task.auto_run = false;
+    task.run_status = null;
+    task.run_result = null;
+  } else {
+    const context = prompt(
+      "Опишите весь контекст для выполнения (какой проект, что именно сделать) — облачный агент увидит только этот текст:",
+      task.context || ""
+    );
+    if (context === null || context.trim() === "") return;
+    await fetch(`${API_BASE}/assistant-tasks-mark?t=${encodeURIComponent(TOKEN)}&id=${id}&auto_run=true&context=${encodeURIComponent(context)}`);
+    task.auto_run = true;
+    task.context = context;
+    task.run_status = "queued";
+    task.run_result = null;
+  }
+  renderList(tasksCache);
+  renderBoard(tasksCache);
+}
+
+function runBadge(t) {
+  if (!t.auto_run && !t.run_status) return null;
+  const badge = document.createElement("span");
+  badge.className = "run-badge";
+  const labels = { queued: "В очереди на авто-выполнение", in_progress: "Выполняется", pr_opened: "Готово: открыт PR", failed: "Ошибка", needs_clarification: "Нужны уточнения" };
+  const label = labels[t.run_status] || t.run_status || "В очереди";
+  if (t.run_result && /^https?:\/\//.test(t.run_result.trim())) {
+    badge.textContent = label + ": ";
+    const a = document.createElement("a");
+    a.href = t.run_result.trim();
+    a.target = "_blank";
+    a.textContent = t.run_result.trim();
+    badge.appendChild(a);
+  } else {
+    badge.textContent = label + (t.run_result ? ": " + t.run_result : "");
+  }
+  return badge;
+}
+
 async function setStatus(id, status) {
   const task = tasksCache.find((t) => t.id === id);
   if (task) task.status = status;
@@ -286,16 +348,24 @@ function renderList(tasks) {
       const time = document.createElement("span");
       time.className = "time";
       time.textContent = formatTime(t.created_at);
-      const text = document.createElement("span");
-      text.className = "text";
-      text.textContent = t.text;
+      const textWrap = document.createElement("span");
+      textWrap.className = "text";
+      textWrap.textContent = t.text;
+      const badge = runBadge(t);
+      if (badge) textWrap.appendChild(badge);
+      const auto = document.createElement("button");
+      auto.className = "auto-btn" + (t.auto_run ? " active" : "");
+      auto.textContent = "🤖";
+      auto.title = t.auto_run ? "Помечено для авто-выполнения — нажмите, чтобы снять" : "Поставить на авто-выполнение (облачный агент)";
+      auto.addEventListener("click", () => toggleAutoRun(t.id));
       const del = document.createElement("button");
       del.className = "del-btn";
       del.textContent = "✕";
       del.title = "Удалить";
       del.addEventListener("click", () => deleteTask(t.id));
       row.appendChild(time);
-      row.appendChild(text);
+      row.appendChild(textWrap);
+      row.appendChild(auto);
       row.appendChild(del);
       card.appendChild(row);
     }
@@ -331,6 +401,14 @@ function renderBoard(tasks) {
         tag.textContent = t.meeting_name;
         textWrap.appendChild(tag);
       }
+      const badge = runBadge(t);
+      if (badge) textWrap.appendChild(badge);
+
+      const auto = document.createElement("button");
+      auto.className = "auto-btn" + (t.auto_run ? " active" : "");
+      auto.textContent = "🤖";
+      auto.title = t.auto_run ? "Помечено для авто-выполнения — нажмите, чтобы снять" : "Поставить на авто-выполнение (облачный агент)";
+      auto.addEventListener("click", () => toggleAutoRun(t.id));
 
       const del = document.createElement("button");
       del.className = "del-btn";
@@ -339,6 +417,7 @@ function renderBoard(tasks) {
       del.addEventListener("click", () => deleteTask(t.id));
 
       card.appendChild(textWrap);
+      card.appendChild(auto);
       card.appendChild(del);
 
       card.addEventListener("dragstart", () => {
