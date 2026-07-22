@@ -13,7 +13,8 @@
     --muted: #6e6e73;
     --border: #e3e3e6;
     --accent: #0a84ff;
-    --done: #34c759;
+    --danger: #ff453a;
+    --col-bg: #ececef;
   }
   @media (prefers-color-scheme: dark) {
     :root {
@@ -22,6 +23,7 @@
       --text: #f2f2f7;
       --muted: #9a9a9e;
       --border: #3a3a3c;
+      --col-bg: #242426;
     }
   }
   * { box-sizing: border-box; }
@@ -34,8 +36,30 @@
   }
   h1 {
     font-size: 20px;
-    margin: 0 0 16px;
+    margin: 0 0 12px;
   }
+  .tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+  .tab-btn {
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--text);
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 14px;
+    cursor: pointer;
+  }
+  .tab-btn.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+  .view { display: none; }
+  .view.active { display: block; }
+
   .meeting-group {
     background: var(--card);
     border: 1px solid var(--border);
@@ -71,26 +95,93 @@
     font-size: 12px;
     white-space: nowrap;
   }
-  .status-done { text-decoration: line-through; color: var(--muted); }
+  .task-row .text { flex: 1; }
+  .status-done .text { text-decoration: line-through; color: var(--muted); }
+  .del-btn {
+    border: none;
+    background: none;
+    color: var(--muted);
+    font-size: 16px;
+    cursor: pointer;
+    line-height: 1;
+    padding: 2px 4px;
+  }
+  .del-btn:hover { color: var(--danger); }
+
   .empty, .loading, .error {
     color: var(--muted);
     padding: 24px 4px;
     text-align: center;
   }
-  .error { color: #ff453a; }
+  .error { color: var(--danger); }
+
+  .board {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+  }
+  @media (max-width: 700px) {
+    .board { grid-template-columns: 1fr; }
+  }
+  .column {
+    background: var(--col-bg);
+    border-radius: 12px;
+    padding: 10px;
+    min-height: 120px;
+  }
+  .column-title {
+    font-weight: 600;
+    font-size: 14px;
+    padding: 4px 6px 10px;
+  }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px;
+    margin-bottom: 8px;
+    font-size: 14px;
+    cursor: grab;
+    display: flex;
+    gap: 6px;
+    align-items: flex-start;
+  }
+  .card.dragging { opacity: 0.4; }
+  .card .card-text { flex: 1; }
+  .card .meeting-tag {
+    display: block;
+    color: var(--muted);
+    font-size: 11px;
+    margin-top: 4px;
+  }
+  .column.drag-over { outline: 2px dashed var(--accent); outline-offset: -2px; }
 </style>
 </head>
 <body>
   <h1>Задачи</h1>
-  <div id="content" class="loading">Загрузка…</div>
+  <div class="tabs">
+    <button class="tab-btn active" data-view="list">Список</button>
+    <button class="tab-btn" data-view="board">Канбан</button>
+  </div>
+
+  <div id="view-list" class="view active">
+    <div id="content" class="loading">Загрузка…</div>
+  </div>
+
+  <div id="view-board" class="view">
+    <div id="board" class="board"></div>
+  </div>
 
 <script>
-const API_URL = "https://hub.xn--80aamvb5b.team/webhook/assistant-tasks";
+const API_BASE = "https://hub.xn--80aamvb5b.team/webhook";
+const STATUS_LABELS = { open: "Открыта", in_progress: "В работе", done: "Готово" };
+const STATUS_ORDER = ["open", "in_progress", "done"];
 
 function getToken() {
   const params = new URLSearchParams(window.location.search);
   return params.get("t") || "";
 }
+const TOKEN = getToken();
 
 function formatDate(iso) {
   if (!iso) return "";
@@ -111,16 +202,17 @@ function formatTime(iso) {
   });
 }
 
+let tasksCache = [];
+
 async function loadTasks() {
   const content = document.getElementById("content");
-  const token = getToken();
-  if (!token) {
+  if (!TOKEN) {
     content.className = "error";
     content.textContent = "Нет токена доступа в ссылке (?t=...).";
     return;
   }
   try {
-    const res = await fetch(`${API_URL}?t=${encodeURIComponent(token)}`);
+    const res = await fetch(`${API_BASE}/assistant-tasks?t=${encodeURIComponent(TOKEN)}`);
     if (!res.ok) {
       content.className = "error";
       content.textContent = res.status === 403
@@ -128,15 +220,32 @@ async function loadTasks() {
         : `Ошибка загрузки (${res.status}).`;
       return;
     }
-    const tasks = await res.json();
-    render(tasks);
+    tasksCache = await res.json();
+    renderList(tasksCache);
+    renderBoard(tasksCache);
   } catch (e) {
     content.className = "error";
     content.textContent = "Не удалось связаться с сервером.";
   }
 }
 
-function render(tasks) {
+async function deleteTask(id) {
+  if (!confirm("Удалить задачу без возможности восстановить?")) return;
+  await fetch(`${API_BASE}/assistant-tasks-delete?t=${encodeURIComponent(TOKEN)}&id=${id}`);
+  tasksCache = tasksCache.filter((t) => t.id !== id);
+  renderList(tasksCache);
+  renderBoard(tasksCache);
+}
+
+async function setStatus(id, status) {
+  const task = tasksCache.find((t) => t.id === id);
+  if (task) task.status = status;
+  renderList(tasksCache);
+  renderBoard(tasksCache);
+  await fetch(`${API_BASE}/assistant-tasks-status?t=${encodeURIComponent(TOKEN)}&id=${id}&status=${status}`);
+}
+
+function renderList(tasks) {
   const content = document.getElementById("content");
   if (!tasks.length) {
     content.className = "empty";
@@ -173,20 +282,104 @@ function render(tasks) {
 
     for (const t of group.tasks) {
       const row = document.createElement("div");
-      row.className = "task-row";
+      row.className = "task-row" + (t.status === "done" ? " status-done" : "");
       const time = document.createElement("span");
       time.className = "time";
       time.textContent = formatTime(t.created_at);
       const text = document.createElement("span");
-      if (t.status === "done") text.className = "status-done";
+      text.className = "text";
       text.textContent = t.text;
+      const del = document.createElement("button");
+      del.className = "del-btn";
+      del.textContent = "✕";
+      del.title = "Удалить";
+      del.addEventListener("click", () => deleteTask(t.id));
       row.appendChild(time);
       row.appendChild(text);
+      row.appendChild(del);
       card.appendChild(row);
     }
     content.appendChild(card);
   }
 }
+
+function renderBoard(tasks) {
+  const board = document.getElementById("board");
+  board.innerHTML = "";
+  for (const status of STATUS_ORDER) {
+    const column = document.createElement("div");
+    column.className = "column";
+    column.dataset.status = status;
+
+    const title = document.createElement("div");
+    title.className = "column-title";
+    title.textContent = STATUS_LABELS[status];
+    column.appendChild(title);
+
+    for (const t of tasks.filter((x) => x.status === status)) {
+      const card = document.createElement("div");
+      card.className = "card";
+      card.draggable = true;
+      card.dataset.id = t.id;
+
+      const textWrap = document.createElement("div");
+      textWrap.className = "card-text";
+      textWrap.textContent = t.text;
+      if (t.meeting_name) {
+        const tag = document.createElement("span");
+        tag.className = "meeting-tag";
+        tag.textContent = t.meeting_name;
+        textWrap.appendChild(tag);
+      }
+
+      const del = document.createElement("button");
+      del.className = "del-btn";
+      del.textContent = "✕";
+      del.title = "Удалить";
+      del.addEventListener("click", () => deleteTask(t.id));
+
+      card.appendChild(textWrap);
+      card.appendChild(del);
+
+      card.addEventListener("dragstart", () => {
+        card.classList.add("dragging");
+        card.dataset.dragging = "1";
+      });
+      card.addEventListener("dragend", () => {
+        card.classList.remove("dragging");
+      });
+
+      column.appendChild(card);
+    }
+
+    column.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      column.classList.add("drag-over");
+    });
+    column.addEventListener("dragleave", () => {
+      column.classList.remove("drag-over");
+    });
+    column.addEventListener("drop", (e) => {
+      e.preventDefault();
+      column.classList.remove("drag-over");
+      const dragging = board.querySelector(".card.dragging");
+      if (!dragging) return;
+      const id = Number(dragging.dataset.id);
+      setStatus(id, status);
+    });
+
+    board.appendChild(column);
+  }
+}
+
+document.querySelectorAll(".tab-btn").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".tab-btn").forEach((b) => b.classList.remove("active"));
+    document.querySelectorAll(".view").forEach((v) => v.classList.remove("active"));
+    btn.classList.add("active");
+    document.getElementById(`view-${btn.dataset.view}`).classList.add("active");
+  });
+});
 
 loadTasks();
 </script>
