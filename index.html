@@ -15,6 +15,7 @@
     --accent: #0a84ff;
     --danger: #ff453a;
     --col-bg: #ececef;
+    --auto-bg: #f2ecff;
   }
   @media (prefers-color-scheme: dark) {
     :root {
@@ -24,6 +25,7 @@
       --muted: #9a9a9e;
       --border: #3a3a3c;
       --col-bg: #242426;
+      --auto-bg: #2c2440;
     }
   }
   * { box-sizing: border-box; }
@@ -90,6 +92,11 @@
     gap: 8px;
   }
   .task-row:last-child { border-bottom: none; }
+  .task-row.auto-marked {
+    background: var(--auto-bg);
+    border-left: 3px solid #8a4fff;
+    margin-left: -3px;
+  }
   .task-row .time {
     color: var(--muted);
     font-size: 12px;
@@ -223,6 +230,10 @@
     align-items: flex-start;
   }
   .card.dragging { opacity: 0.4; }
+  .card.auto-marked {
+    background: var(--auto-bg);
+    border-color: #8a4fff;
+  }
   .card .card-text { flex: 1; }
   .card .meeting-tag {
     display: block;
@@ -501,7 +512,7 @@ function renderList(tasks) {
 
     for (const t of group.tasks) {
       const row = document.createElement("div");
-      row.className = "task-row" + (t.status === "done" ? " status-done" : "");
+      row.className = "task-row" + (t.status === "done" ? " status-done" : "") + (t.auto_run ? " auto-marked" : "");
       const time = document.createElement("span");
       time.className = "time";
       time.textContent = formatTime(t.created_at);
@@ -541,7 +552,7 @@ function renderBoard(tasks) {
 
     for (const t of tasks.filter((x) => x.status === status)) {
       const card = document.createElement("div");
-      card.className = "card";
+      card.className = "card" + (t.auto_run ? " auto-marked" : "");
       card.draggable = true;
       card.dataset.id = t.id;
 
