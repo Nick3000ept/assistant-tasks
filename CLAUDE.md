@@ -95,6 +95,29 @@ Telegram Trigger → Owner only (IF: from.id = 325113969) → Classify (Code: о
   ssh root@5.129.228.135 "docker exec tasks-db psql -U tasksbot -d tasksdb -c 'SELECT * FROM tasks ORDER BY id DESC LIMIT 20;'"
   ```
 
+## Админка (просмотр списка задач)
+
+Отдельный публичный сайт на GitHub Pages, показывает задачи, сгруппированные по
+совещанию (с датой). Только просмотр, без действий (отметка выполнения — в планах).
+
+| Параметр | Значение |
+|---|---|
+| Сайт | https://nick3000ept.github.io/assistant-tasks/ (нужен `?t=токен` в ссылке) |
+| Репозиторий | https://github.com/Nick3000ept/assistant-tasks (публичный код, но данные закрыты токеном) |
+| Backend (API) | n8n workflow id `bGf3PucODMr3T9Xi` («Assistant — API для админки задач») |
+| API-адрес | `https://hub.каскад.team/webhook/assistant-tasks?t=токен` (GET, отдаёт JSON-массив задач) |
+| Токен доступа | см. `../ДОСТУПЫ.md`, раздел «Телеграм-бот задач (Assistant)» — без него API отвечает 403 |
+
+### Как это работает
+- Webhook-узел в n8n принимает GET-запрос, сверяет `?t=` с токеном (сравнение в
+  IF-узле схемы, не в коде сайта).
+- При совпадении — читает `tasks` с `LEFT JOIN meetings`, отдаёт JSON-массив.
+- Страница `index.html` берёт токен из своей же ссылки (`?t=...`), запрашивает API,
+  группирует задачи по `meeting_name` и рисует карточки.
+- Правки в API — через n8n (веб-интерфейс или API), правки в вид страницы —
+  через `index.html` в этом репозитории (`git push` в main публикует сам, GitHub
+  Pages, ветка main, корень).
+
 ## Планы (не сделано)
 
 - `/list` — показать открытые задачи (в том числе сгруппированные по совещанию/дате).
