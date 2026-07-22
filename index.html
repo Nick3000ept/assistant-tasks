@@ -290,6 +290,13 @@
 
       <label for="modal-context">Контекст для автовыполнения (облачный агент)</label>
       <textarea id="modal-context" placeholder="Например: Проект СБ3_Шахматка. Сделать шрифт в аналитике крупнее."></textarea>
+
+      <label for="modal-tasktype">Тип задачи для облачного агента</label>
+      <select id="modal-tasktype">
+        <option value="code">Правка кода (агент откроет Pull Request)</option>
+        <option value="report">Отчёт / анализ данных (агент посчитает и пришлёт в Telegram)</option>
+      </select>
+
       <div class="auto-row">
         <input type="checkbox" id="modal-autorun">
         <label for="modal-autorun" style="margin:0;">Выполнить автоматически ночью</label>
@@ -386,6 +393,7 @@ function openTaskModal(id) {
   document.getElementById("modal-text").value = task.text || "";
   document.getElementById("modal-status").value = task.status || "open";
   document.getElementById("modal-context").value = task.context || "";
+  document.getElementById("modal-tasktype").value = task.task_type || "code";
   document.getElementById("modal-autorun").checked = !!task.auto_run;
 
   const meta = document.getElementById("modal-meta");
@@ -428,6 +436,7 @@ function openNewTaskModal() {
   document.getElementById("modal-text").value = "";
   document.getElementById("modal-status").value = "open";
   document.getElementById("modal-context").value = "";
+  document.getElementById("modal-tasktype").value = "code";
   document.getElementById("modal-autorun").checked = false;
   document.getElementById("modal-meta").innerHTML = "";
 
@@ -443,6 +452,7 @@ async function saveModal() {
   const newText = document.getElementById("modal-text").value.trim();
   const newStatus = document.getElementById("modal-status").value;
   const newContext = document.getElementById("modal-context").value;
+  const newTaskType = document.getElementById("modal-tasktype").value;
   const newAutoRun = document.getElementById("modal-autorun").checked;
 
   if (modalIsNew) {
@@ -457,9 +467,10 @@ async function saveModal() {
       created.status = newStatus;
     }
     if (newContext.trim() || newAutoRun) {
-      await fetch(`${API_BASE}/assistant-tasks-mark?t=${encodeURIComponent(TOKEN)}&id=${created.id}&auto_run=${newAutoRun}&context=${encodeURIComponent(newContext)}`);
+      await fetch(`${API_BASE}/assistant-tasks-mark?t=${encodeURIComponent(TOKEN)}&id=${created.id}&auto_run=${newAutoRun}&task_type=${newTaskType}&context=${encodeURIComponent(newContext)}`);
       created.context = newContext;
       created.auto_run = newAutoRun;
+      created.task_type = newTaskType;
       created.run_status = newAutoRun ? "queued" : null;
     }
     renderList(tasksCache);
@@ -480,10 +491,11 @@ async function saveModal() {
     requests.push(fetch(`${API_BASE}/assistant-tasks-status?t=${encodeURIComponent(TOKEN)}&id=${id}&status=${newStatus}`));
     task.status = newStatus;
   }
-  if (newContext !== (task.context || "") || newAutoRun !== !!task.auto_run) {
-    requests.push(fetch(`${API_BASE}/assistant-tasks-mark?t=${encodeURIComponent(TOKEN)}&id=${id}&auto_run=${newAutoRun}&context=${encodeURIComponent(newContext)}`));
+  if (newContext !== (task.context || "") || newAutoRun !== !!task.auto_run || newTaskType !== (task.task_type || "code")) {
+    requests.push(fetch(`${API_BASE}/assistant-tasks-mark?t=${encodeURIComponent(TOKEN)}&id=${id}&auto_run=${newAutoRun}&task_type=${newTaskType}&context=${encodeURIComponent(newContext)}`));
     task.context = newContext;
     task.auto_run = newAutoRun;
+    task.task_type = newTaskType;
     task.run_status = newAutoRun ? (task.run_status || "queued") : null;
     task.run_result = newAutoRun ? task.run_result : null;
   }
