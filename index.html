@@ -288,18 +288,20 @@
         <option value="done">Готово</option>
       </select>
 
-      <label for="modal-context">Контекст для автовыполнения (облачный агент)</label>
-      <textarea id="modal-context" placeholder="Например: Проект СБ3_Шахматка. Сделать шрифт в аналитике крупнее."></textarea>
-
-      <label for="modal-tasktype">Тип задачи для облачного агента</label>
-      <select id="modal-tasktype">
-        <option value="code">Правка кода (агент откроет Pull Request)</option>
-        <option value="report">Отчёт / анализ данных (агент посчитает и пришлёт в Telegram)</option>
-      </select>
-
       <div class="auto-row">
         <input type="checkbox" id="modal-autorun">
         <label for="modal-autorun" style="margin:0;">Выполнить автоматически ночью</label>
+      </div>
+
+      <div id="modal-auto-fields" style="display:none;">
+        <label for="modal-context">Контекст для автовыполнения (облачный агент)</label>
+        <textarea id="modal-context" placeholder="Например: Проект СБ3_Шахматка. Сделать шрифт в аналитике крупнее."></textarea>
+
+        <label for="modal-tasktype">Тип задачи для облачного агента</label>
+        <select id="modal-tasktype">
+          <option value="code">Правка кода (агент откроет Pull Request)</option>
+          <option value="report">Отчёт / анализ данных (агент посчитает и пришлёт в Telegram)</option>
+        </select>
       </div>
 
       <div id="modal-meta" class="meta"></div>
@@ -382,6 +384,12 @@ async function deleteTask(id) {
 let modalTaskId = null;
 let modalIsNew = false;
 
+function updateAutoFieldsVisibility() {
+  const checked = document.getElementById("modal-autorun").checked;
+  document.getElementById("modal-auto-fields").style.display = checked ? "block" : "none";
+}
+document.getElementById("modal-autorun").addEventListener("change", updateAutoFieldsVisibility);
+
 function openTaskModal(id) {
   const task = tasksCache.find((t) => t.id === id);
   if (!task) return;
@@ -395,6 +403,7 @@ function openTaskModal(id) {
   document.getElementById("modal-context").value = task.context || "";
   document.getElementById("modal-tasktype").value = task.task_type || "code";
   document.getElementById("modal-autorun").checked = !!task.auto_run;
+  updateAutoFieldsVisibility();
 
   const meta = document.getElementById("modal-meta");
   meta.innerHTML = "";
@@ -438,6 +447,7 @@ function openNewTaskModal() {
   document.getElementById("modal-context").value = "";
   document.getElementById("modal-tasktype").value = "code";
   document.getElementById("modal-autorun").checked = false;
+  updateAutoFieldsVisibility();
   document.getElementById("modal-meta").innerHTML = "";
 
   document.getElementById("modal-overlay").classList.add("open");
