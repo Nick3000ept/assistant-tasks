@@ -62,26 +62,25 @@
   .view { display: none; }
   .view.active { display: block; }
 
-  .meeting-group {
+  .task-list {
     background: var(--card);
     border: 1px solid var(--border);
     border-radius: 12px;
     margin-bottom: 14px;
     overflow: hidden;
   }
-  .meeting-header {
-    padding: 12px 16px;
-    font-weight: 600;
-    border-bottom: 1px solid var(--border);
-    display: flex;
-    justify-content: space-between;
-    gap: 8px;
-    flex-wrap: wrap;
-  }
-  .meeting-header .date {
-    font-weight: 400;
+  .task-row .meeting-pill {
+    display: inline-block;
     color: var(--muted);
-    font-size: 13px;
+    font-size: 12px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 1px 8px;
+    white-space: nowrap;
+    max-width: 160px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    vertical-align: middle;
   }
   .task-row {
     padding: 10px 16px;
@@ -563,58 +562,48 @@ function renderList(tasks) {
     return;
   }
 
-  const groups = new Map();
-  const noMeetingKey = "__none__";
-  for (const t of tasks) {
-    const key = t.meeting_name || noMeetingKey;
-    if (!groups.has(key)) groups.set(key, { name: t.meeting_name, date: t.meeting_date, tasks: [] });
-    groups.get(key).tasks.push(t);
-  }
+  const sorted = [...tasks].sort((a, b) => {
+    const ta = a.created_at ? new Date(a.created_at).getTime() : 0;
+    const tb = b.created_at ? new Date(b.created_at).getTime() : 0;
+    return tb - ta || (b.id || 0) - (a.id || 0);
+  });
 
   content.className = "";
   content.innerHTML = "";
-  for (const group of groups.values()) {
-    const card = document.createElement("div");
-    card.className = "meeting-group";
+  const list = document.createElement("div");
+  list.className = "task-list";
 
-    const header = document.createElement("div");
-    header.className = "meeting-header";
-    const title = document.createElement("span");
-    title.textContent = group.name || "Без совещания";
-    header.appendChild(title);
-    if (group.date) {
-      const date = document.createElement("span");
-      date.className = "date";
-      date.textContent = formatDate(group.date);
-      header.appendChild(date);
+  for (const t of sorted) {
+    const row = document.createElement("div");
+    row.className = "task-row" + (t.status === "done" ? " status-done" : "") + (t.auto_run ? " auto-marked" : "");
+    const time = document.createElement("span");
+    time.className = "time";
+    time.textContent = formatDate(t.created_at);
+    const textWrap = document.createElement("span");
+    textWrap.className = "text";
+    textWrap.textContent = t.text;
+    textWrap.title = "Открыть задачу";
+    textWrap.addEventListener("click", () => openTaskModal(t.id));
+    const badge = runBadge(t);
+    if (badge) textWrap.appendChild(badge);
+    row.appendChild(time);
+    row.appendChild(textWrap);
+    if (t.meeting_name) {
+      const pill = document.createElement("span");
+      pill.className = "meeting-pill";
+      pill.textContent = t.meeting_name;
+      pill.title = "Совещание: " + t.meeting_name + (t.meeting_date ? " (" + formatDate(t.meeting_date) + ")" : "");
+      row.appendChild(pill);
     }
-    card.appendChild(header);
-
-    for (const t of group.tasks) {
-      const row = document.createElement("div");
-      row.className = "task-row" + (t.status === "done" ? " status-done" : "") + (t.auto_run ? " auto-marked" : "");
-      const time = document.createElement("span");
-      time.className = "time";
-      time.textContent = formatTime(t.created_at);
-      const textWrap = document.createElement("span");
-      textWrap.className = "text";
-      textWrap.textContent = t.text;
-      textWrap.title = "Открыть задачу";
-      textWrap.addEventListener("click", () => openTaskModal(t.id));
-      const badge = runBadge(t);
-      if (badge) textWrap.appendChild(badge);
-      const del = document.createElement("button");
-      del.className = "del-btn";
-      del.textContent = "✕";
-      del.title = "Удалить";
-      del.addEventListener("click", (e) => { e.stopPropagation(); deleteTask(t.id); });
-      row.appendChild(time);
-      row.appendChild(textWrap);
-      row.appendChild(del);
-      card.appendChild(row);
-    }
-    content.appendChild(card);
+    const del = document.createElement("button");
+    del.className = "del-btn";
+    del.textContent = "✕";
+    del.title = "Удалить";
+    del.addEventListener("click", (e) => { e.stopPropagation(); deleteTask(t.id); });
+    row.appendChild(del);
+    list.appendChild(row);
   }
+  content.appendChild(list);
 }
 
 function renderBoard(tasks) {
