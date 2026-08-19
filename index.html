@@ -234,11 +234,24 @@
     border-color: #8a4fff;
   }
   .card .card-text { flex: 1; }
-  .card .meeting-tag {
-    display: block;
+  .card .card-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    margin-top: 6px;
     color: var(--muted);
     font-size: 11px;
-    margin-top: 4px;
+  }
+  .card .card-meta .meeting-pill {
+    display: inline-block;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 1px 8px;
+    white-space: nowrap;
+    max-width: 160px;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .column.drag-over { outline: 2px dashed var(--accent); outline-offset: -2px; }
 
@@ -630,12 +643,19 @@ function renderBoard(tasks) {
       textWrap.textContent = t.text;
       textWrap.title = "Открыть задачу";
       textWrap.addEventListener("click", () => openTaskModal(t.id));
+      const meta = document.createElement("div");
+      meta.className = "card-meta";
+      const when = document.createElement("span");
+      when.textContent = formatDate(t.created_at);
+      meta.appendChild(when);
       if (t.meeting_name) {
-        const tag = document.createElement("span");
-        tag.className = "meeting-tag";
-        tag.textContent = t.meeting_name;
-        textWrap.appendChild(tag);
+        const pill = document.createElement("span");
+        pill.className = "meeting-pill";
+        pill.textContent = t.meeting_name;
+        pill.title = "Совещание: " + t.meeting_name + (t.meeting_date ? " (" + formatDate(t.meeting_date) + ")" : "");
+        meta.appendChild(pill);
       }
+      textWrap.appendChild(meta);
       const badge = runBadge(t);
       if (badge) textWrap.appendChild(badge);
 
