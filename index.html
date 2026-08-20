@@ -15,7 +15,6 @@
     --accent: #0a84ff;
     --danger: #ff453a;
     --col-bg: #ececef;
-    --auto-bg: #f2ecff;
   }
   @media (prefers-color-scheme: dark) {
     :root {
@@ -25,7 +24,6 @@
       --muted: #9a9a9e;
       --border: #3a3a3c;
       --col-bg: #242426;
-      --auto-bg: #2c2440;
     }
   }
   * { box-sizing: border-box; }
@@ -69,6 +67,74 @@
     margin-bottom: 14px;
     overflow: hidden;
   }
+  .task-row .tags-cell {
+    flex: none;
+    width: 180px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    justify-content: flex-end;
+    align-items: center;
+    cursor: pointer;
+    position: relative;
+  }
+  .tags-cell .tags-placeholder {
+    color: var(--muted);
+    font-size: 12px;
+    border: 1px dashed var(--border);
+    border-radius: 999px;
+    padding: 1px 8px;
+    opacity: 0;
+  }
+  .task-row:hover .tags-placeholder { opacity: 1; }
+  .tags-menu {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 4px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px;
+    z-index: 50;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+    min-width: 180px;
+    max-height: 240px;
+    overflow: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    cursor: default;
+  }
+  .tags-menu label {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    font-size: 13px;
+    cursor: pointer;
+    white-space: nowrap;
+    margin: 0;
+  }
+  .tags-menu .new-tag-row { display: flex; gap: 4px; margin-top: 2px; }
+  .tags-menu .new-tag-row input {
+    flex: 1;
+    min-width: 0;
+    font-size: 13px;
+    padding: 4px 6px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg);
+    color: inherit;
+  }
+  .tags-menu .new-tag-row button {
+    font-size: 12px;
+    padding: 4px 8px;
+    border: 1px solid var(--border);
+    background: none;
+    border-radius: 6px;
+    cursor: pointer;
+    color: var(--accent);
+  }
   .tag-pill {
     display: inline-block;
     color: var(--accent);
@@ -106,11 +172,6 @@
     gap: 8px;
   }
   .task-row:last-child { border-bottom: none; }
-  .task-row.auto-marked {
-    background: var(--auto-bg);
-    border-left: 3px solid #8a4fff;
-    margin-left: -3px;
-  }
   .task-row .time {
     color: var(--muted);
     font-size: 12px;
@@ -128,13 +189,6 @@
     padding: 2px 4px;
   }
   .del-btn:hover { color: var(--danger); }
-  .run-badge {
-    display: block;
-    font-size: 11px;
-    color: var(--muted);
-    margin-top: 2px;
-  }
-  .run-badge a { color: var(--accent); }
   .task-row .text, .card .card-text { cursor: pointer; }
 
   .modal-overlay {
@@ -181,13 +235,6 @@
     line-height: 1.6;
   }
   .modal .meta a { color: var(--accent); }
-  .modal .auto-row {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-top: 12px;
-    font-size: 14px;
-  }
   .modal .actions {
     display: flex;
     justify-content: space-between;
@@ -244,10 +291,6 @@
     align-items: flex-start;
   }
   .card.dragging { opacity: 0.4; }
-  .card.auto-marked {
-    background: var(--auto-bg);
-    border-color: #8a4fff;
-  }
   .card .card-text { flex: 1; }
   .card .card-meta {
     display: flex;
@@ -319,22 +362,6 @@
       <input id="modal-tags" list="tags-suggest" placeholder="Например: СБ3, КЛАД">
       <datalist id="tags-suggest"></datalist>
 
-      <div class="auto-row">
-        <input type="checkbox" id="modal-autorun">
-        <label for="modal-autorun" style="margin:0;">Выполнить автоматически ночью</label>
-      </div>
-
-      <div id="modal-auto-fields" style="display:none;">
-        <label for="modal-context">Контекст для автовыполнения (облачный агент)</label>
-        <textarea id="modal-context" placeholder="Например: Проект СБ3_Шахматка. Сделать шрифт в аналитике крупнее."></textarea>
-
-        <label for="modal-tasktype">Тип задачи для облачного агента</label>
-        <select id="modal-tasktype">
-          <option value="code">Правка кода (агент откроет Pull Request)</option>
-          <option value="report">Отчёт / анализ данных (агент посчитает и пришлёт в Telegram)</option>
-        </select>
-      </div>
-
       <div id="modal-meta" class="meta"></div>
 
       <div class="actions">
@@ -392,12 +419,113 @@ function appendTagPills(el, t) {
   }
 }
 
+function allTags() {
+  const set = new Set();
+  for (const t of tasksCache) for (const tag of parseTags(t.tags)) set.add(tag);
+  return [...set].sort((a, b) => a.localeCompare(b, "ru"));
+}
+
+let openTagsMenuEl = null;
+function closeTagsMenu() {
+  if (openTagsMenuEl) { openTagsMenuEl.remove(); openTagsMenuEl = null; }
+}
+document.addEventListener("click", closeTagsMenu);
+
+function saveTags(task, tagsArr) {
+  task.tags = tagsArr.join(", ");
+  fetch(`${API_BASE}/assistant-tasks-tags?t=${encodeURIComponent(TOKEN)}&id=${task.id}&tags=${encodeURIComponent(task.tags)}`);
+}
+
+function drawPills(cell, task) {
+  const wrap = cell.querySelector(".pills-wrap");
+  wrap.innerHTML = "";
+  const tags = parseTags(task.tags);
+  if (!tags.length) {
+    const ph = document.createElement("span");
+    ph.className = "tags-placeholder";
+    ph.textContent = "+ тег";
+    wrap.appendChild(ph);
+    return;
+  }
+  for (const tag of tags) {
+    const pill = document.createElement("span");
+    pill.className = "tag-pill";
+    pill.textContent = tag;
+    wrap.appendChild(pill);
+  }
+}
+
+function buildTagsMenu(task, cell) {
+  closeTagsMenu();
+  const menu = document.createElement("div");
+  menu.className = "tags-menu";
+  const current = new Set(parseTags(task.tags));
+  const tags = allTags();
+  for (const tag of tags) {
+    const label = document.createElement("label");
+    const cb = document.createElement("input");
+    cb.type = "checkbox";
+    cb.checked = current.has(tag);
+    cb.addEventListener("change", () => {
+      const set = new Set(parseTags(task.tags));
+      if (cb.checked) set.add(tag); else set.delete(tag);
+      saveTags(task, [...set]);
+      drawPills(cell, task);
+      renderBoard(tasksCache);
+    });
+    label.appendChild(cb);
+    label.appendChild(document.createTextNode(tag));
+    menu.appendChild(label);
+  }
+  const newRow = document.createElement("div");
+  newRow.className = "new-tag-row";
+  const inp = document.createElement("input");
+  inp.placeholder = tags.length ? "Новый тег" : "Первый тег";
+  const btn = document.createElement("button");
+  btn.textContent = "+";
+  btn.title = "Добавить тег";
+  const addNew = () => {
+    const v = inp.value.trim();
+    if (!v) return;
+    const set = new Set(parseTags(task.tags));
+    set.add(v);
+    saveTags(task, [...set]);
+    drawPills(cell, task);
+    renderBoard(tasksCache);
+    buildTagsMenu(task, cell);
+  };
+  inp.addEventListener("keydown", (e) => { if (e.key === "Enter") addNew(); });
+  btn.addEventListener("click", addNew);
+  newRow.appendChild(inp);
+  newRow.appendChild(btn);
+  menu.appendChild(newRow);
+  cell.appendChild(menu);
+  openTagsMenuEl = menu;
+  inp.focus();
+}
+
+function buildTagsCell(task) {
+  const cell = document.createElement("span");
+  cell.className = "tags-cell";
+  const wrap = document.createElement("span");
+  wrap.className = "pills-wrap";
+  wrap.style.display = "contents";
+  cell.appendChild(wrap);
+  drawPills(cell, task);
+  cell.title = "Теги задачи — нажмите, чтобы выбрать";
+  cell.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (e.target.closest(".tags-menu")) return;
+    if (openTagsMenuEl && cell.contains(openTagsMenuEl)) closeTagsMenu();
+    else buildTagsMenu(task, cell);
+  });
+  return cell;
+}
+
 function refreshTagSuggest() {
   const dl = document.getElementById("tags-suggest");
   dl.innerHTML = "";
-  const all = new Set();
-  for (const t of tasksCache) for (const tag of parseTags(t.tags)) all.add(tag);
-  for (const tag of [...all].sort((a, b) => a.localeCompare(b, "ru"))) {
+  for (const tag of allTags()) {
     const opt = document.createElement("option");
     opt.value = tag;
     dl.appendChild(opt);
@@ -442,12 +570,6 @@ async function deleteTask(id) {
 let modalTaskId = null;
 let modalIsNew = false;
 
-function updateAutoFieldsVisibility() {
-  const checked = document.getElementById("modal-autorun").checked;
-  document.getElementById("modal-auto-fields").style.display = checked ? "block" : "none";
-}
-document.getElementById("modal-autorun").addEventListener("change", updateAutoFieldsVisibility);
-
 function openTaskModal(id) {
   const task = tasksCache.find((t) => t.id === id);
   if (!task) return;
@@ -460,10 +582,6 @@ function openTaskModal(id) {
   document.getElementById("modal-status").value = task.status || "open";
   document.getElementById("modal-tags").value = parseTags(task.tags).join(", ");
   refreshTagSuggest();
-  document.getElementById("modal-context").value = task.context || "";
-  document.getElementById("modal-tasktype").value = task.task_type || "code";
-  document.getElementById("modal-autorun").checked = !!task.auto_run;
-  updateAutoFieldsVisibility();
 
   const meta = document.getElementById("modal-meta");
   meta.innerHTML = "";
@@ -474,22 +592,6 @@ function openTaskModal(id) {
   for (const line of lines) {
     const div = document.createElement("div");
     div.textContent = line;
-    meta.appendChild(div);
-  }
-  if (task.run_status) {
-    const div = document.createElement("div");
-    const labels = { queued: "В очереди на авто-выполнение", in_progress: "Выполняется", pr_opened: "Готово: открыт PR", sent: "Готово: отчёт отправлен", failed: "Ошибка автозапуска", needs_clarification: "Нужны уточнения" };
-    const label = labels[task.run_status] || task.run_status;
-    if (task.run_result && /^https?:\/\//.test(task.run_result.trim())) {
-      div.append(label + ": ");
-      const a = document.createElement("a");
-      a.href = task.run_result.trim();
-      a.target = "_blank";
-      a.textContent = task.run_result.trim();
-      div.appendChild(a);
-    } else {
-      div.textContent = label + (task.run_result ? ": " + task.run_result : "");
-    }
     meta.appendChild(div);
   }
 
@@ -504,12 +606,8 @@ function openNewTaskModal() {
   document.getElementById("modal-delete").style.display = "none";
   document.getElementById("modal-text").value = "";
   document.getElementById("modal-status").value = "open";
-  document.getElementById("modal-context").value = "";
   document.getElementById("modal-tags").value = "";
   refreshTagSuggest();
-  document.getElementById("modal-tasktype").value = "code";
-  document.getElementById("modal-autorun").checked = false;
-  updateAutoFieldsVisibility();
   document.getElementById("modal-meta").innerHTML = "";
 
   document.getElementById("modal-overlay").classList.add("open");
@@ -523,9 +621,6 @@ function closeModal() {
 async function saveModal() {
   const newText = document.getElementById("modal-text").value.trim();
   const newStatus = document.getElementById("modal-status").value;
-  const newContext = document.getElementById("modal-context").value;
-  const newTaskType = document.getElementById("modal-tasktype").value;
-  const newAutoRun = document.getElementById("modal-autorun").checked;
   const newTags = parseTags(document.getElementById("modal-tags").value).join(", ");
 
   if (modalIsNew) {
@@ -542,13 +637,6 @@ async function saveModal() {
     if (newTags) {
       await fetch(`${API_BASE}/assistant-tasks-tags?t=${encodeURIComponent(TOKEN)}&id=${created.id}&tags=${encodeURIComponent(newTags)}`);
       created.tags = newTags;
-    }
-    if (newContext.trim() || newAutoRun) {
-      await fetch(`${API_BASE}/assistant-tasks-mark?t=${encodeURIComponent(TOKEN)}&id=${created.id}&auto_run=${newAutoRun}&task_type=${newTaskType}&context=${encodeURIComponent(newContext)}`);
-      created.context = newContext;
-      created.auto_run = newAutoRun;
-      created.task_type = newTaskType;
-      created.run_status = newAutoRun ? "queued" : null;
     }
     renderList(tasksCache);
     renderBoard(tasksCache);
@@ -572,14 +660,6 @@ async function saveModal() {
     requests.push(fetch(`${API_BASE}/assistant-tasks-tags?t=${encodeURIComponent(TOKEN)}&id=${id}&tags=${encodeURIComponent(newTags)}`));
     task.tags = newTags;
   }
-  if (newContext !== (task.context || "") || newAutoRun !== !!task.auto_run || newTaskType !== (task.task_type || "code")) {
-    requests.push(fetch(`${API_BASE}/assistant-tasks-mark?t=${encodeURIComponent(TOKEN)}&id=${id}&auto_run=${newAutoRun}&task_type=${newTaskType}&context=${encodeURIComponent(newContext)}`));
-    task.context = newContext;
-    task.auto_run = newAutoRun;
-    task.task_type = newTaskType;
-    task.run_status = newAutoRun ? (task.run_status || "queued") : null;
-    task.run_result = newAutoRun ? task.run_result : null;
-  }
 
   closeModal();
   renderList(tasksCache);
@@ -598,25 +678,6 @@ document.getElementById("modal-delete").addEventListener("click", async () => {
   closeModal();
   if (id != null) await deleteTask(id);
 });
-
-function runBadge(t) {
-  if (!t.auto_run && !t.run_status) return null;
-  const badge = document.createElement("span");
-  badge.className = "run-badge";
-  const labels = { queued: "В очереди на авто-выполнение", in_progress: "Выполняется", pr_opened: "Готово: открыт PR", sent: "Готово: отчёт отправлен", failed: "Ошибка", needs_clarification: "Нужны уточнения" };
-  const label = labels[t.run_status] || t.run_status || "В очереди";
-  if (t.run_result && /^https?:\/\//.test(t.run_result.trim())) {
-    badge.textContent = label + ": ";
-    const a = document.createElement("a");
-    a.href = t.run_result.trim();
-    a.target = "_blank";
-    a.textContent = t.run_result.trim();
-    badge.appendChild(a);
-  } else {
-    badge.textContent = label + (t.run_result ? ": " + t.run_result : "");
-  }
-  return badge;
-}
 
 async function setStatus(id, status) {
   const task = tasksCache.find((t) => t.id === id);
@@ -647,7 +708,7 @@ function renderList(tasks) {
 
   for (const t of sorted) {
     const row = document.createElement("div");
-    row.className = "task-row" + (t.status === "done" ? " status-done" : "") + (t.auto_run ? " auto-marked" : "");
+    row.className = "task-row" + (t.status === "done" ? " status-done" : "");
     const time = document.createElement("span");
     time.className = "time";
     time.textContent = formatDate(t.created_at);
@@ -656,11 +717,8 @@ function renderList(tasks) {
     textWrap.textContent = t.text;
     textWrap.title = "Открыть задачу";
     textWrap.addEventListener("click", () => openTaskModal(t.id));
-    const badge = runBadge(t);
-    if (badge) textWrap.appendChild(badge);
     row.appendChild(time);
     row.appendChild(textWrap);
-    appendTagPills(row, t);
     if (t.meeting_name) {
       const pill = document.createElement("span");
       pill.className = "meeting-pill";
@@ -668,6 +726,7 @@ function renderList(tasks) {
       pill.title = "Совещание: " + t.meeting_name + (t.meeting_date ? " (" + formatDate(t.meeting_date) + ")" : "");
       row.appendChild(pill);
     }
+    row.appendChild(buildTagsCell(t));
     const del = document.createElement("button");
     del.className = "del-btn";
     del.textContent = "✕";
@@ -694,7 +753,7 @@ function renderBoard(tasks) {
 
     for (const t of tasks.filter((x) => x.status === status)) {
       const card = document.createElement("div");
-      card.className = "card" + (t.auto_run ? " auto-marked" : "");
+      card.className = "card";
       card.draggable = true;
       card.dataset.id = t.id;
 
@@ -717,8 +776,6 @@ function renderBoard(tasks) {
         meta.appendChild(pill);
       }
       textWrap.appendChild(meta);
-      const badge = runBadge(t);
-      if (badge) textWrap.appendChild(badge);
 
       const del = document.createElement("button");
       del.className = "del-btn";
