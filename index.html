@@ -69,6 +69,21 @@
     margin-bottom: 14px;
     overflow: hidden;
   }
+  .tag-pill {
+    display: inline-block;
+    color: var(--accent);
+    font-size: 12px;
+    border: 1px solid var(--accent);
+    border-radius: 999px;
+    padding: 1px 8px;
+    white-space: nowrap;
+    max-width: 160px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    vertical-align: middle;
+    opacity: 0.85;
+  }
+  .card .card-meta .tag-pill { font-size: 11px; }
   .task-row .meeting-pill {
     display: inline-block;
     color: var(--muted);
@@ -300,6 +315,10 @@
         <option value="done">Готово</option>
       </select>
 
+      <label for="modal-tags">Теги (через запятую)</label>
+      <input id="modal-tags" list="tags-suggest" placeholder="Например: СБ3, КЛАД">
+      <datalist id="tags-suggest"></datalist>
+
       <div class="auto-row">
         <input type="checkbox" id="modal-autorun">
         <label for="modal-autorun" style="margin:0;">Выполнить автоматически ночью</label>
@@ -358,6 +377,33 @@ function formatTime(iso) {
   });
 }
 
+function parseTags(str) {
+  if (!str) return [];
+  const seen = new Set();
+  return String(str).split(",").map((x) => x.trim()).filter((x) => x && !seen.has(x.toLowerCase()) && seen.add(x.toLowerCase()));
+}
+
+function appendTagPills(el, t) {
+  for (const tag of parseTags(t.tags)) {
+    const pill = document.createElement("span");
+    pill.className = "tag-pill";
+    pill.textContent = tag;
+    el.appendChild(pill);
+  }
+}
+
+function refreshTagSuggest() {
+  const dl = document.getElementById("tags-suggest");
+  dl.innerHTML = "";
+  const all = new Set();
+  for (const t of tasksCache) for (const tag of parseTags(t.tags)) all.add(tag);
+  for (const tag of [...all].sort((a, b) => a.localeCompare(b, "ru"))) {
+    const opt = document.createElement("option");
+    opt.value = tag;
+    dl.appendChild(opt);
+  }
+}
+
 let tasksCache = [];
 
 async function loadTasks() {
@@ -412,6 +458,8 @@ function openTaskModal(id) {
   document.getElementById("modal-delete").style.display = "";
   document.getElementById("modal-text").value = task.text || "";
   document.getElementById("modal-status").value = task.status || "open";
+  document.getElementById("modal-tags").value = parseTags(task.tags).join(", ");
+  refreshTagSuggest();
   document.getElementById("modal-context").value = task.context || "";
   document.getElementById("modal-tasktype").value = task.task_type || "code";
   document.getElementById("modal-autorun").checked = !!task.auto_run;
@@ -457,6 +505,8 @@ function openNewTaskModal() {
   document.getElementById("modal-text").value = "";
   document.getElementById("modal-status").value = "open";
   document.getElementById("modal-context").value = "";
+  document.getElementById("modal-tags").value = "";
+  refreshTagSuggest();
   document.getElementById("modal-tasktype").value = "code";
   document.getElementById("modal-autorun").checked = false;
   updateAutoFieldsVisibility();
@@ -476,6 +526,7 @@ async function saveModal() {
   const newContext = document.getElementById("modal-context").value;
   const newTaskType = document.getElementById("modal-tasktype").value;
   const newAutoRun = document.getElementById("modal-autorun").checked;
+  const newTags = parseTags(document.getElementById("modal-tags").value).join(", ");
 
   if (modalIsNew) {
     if (!newText) return closeModal();
@@ -487,6 +538,10 @@ async function saveModal() {
     if (newStatus !== "open") {
       await fetch(`${API_BASE}/assistant-tasks-status?t=${encodeURIComponent(TOKEN)}&id=${created.id}&status=${newStatus}`);
       created.status = newStatus;
+    }
+    if (newTags) {
+      await fetch(`${API_BASE}/assistant-tasks-tags?t=${encodeURIComponent(TOKEN)}&id=${created.id}&tags=${encodeURIComponent(newTags)}`);
+      created.tags = newTags;
     }
     if (newContext.trim() || newAutoRun) {
       await fetch(`${API_BASE}/assistant-tasks-mark?t=${encodeURIComponent(TOKEN)}&id=${created.id}&auto_run=${newAutoRun}&task_type=${newTaskType}&context=${encodeURIComponent(newContext)}`);
@@ -512,6 +567,10 @@ async function saveModal() {
   if (newStatus !== task.status) {
     requests.push(fetch(`${API_BASE}/assistant-tasks-status?t=${encodeURIComponent(TOKEN)}&id=${id}&status=${newStatus}`));
     task.status = newStatus;
+  }
+  if (newTags !== parseTags(task.tags).join(", ")) {
+    requests.push(fetch(`${API_BASE}/assistant-tasks-tags?t=${encodeURIComponent(TOKEN)}&id=${id}&tags=${encodeURIComponent(newTags)}`));
+    task.tags = newTags;
   }
   if (newContext !== (task.context || "") || newAutoRun !== !!task.auto_run || newTaskType !== (task.task_type || "code")) {
     requests.push(fetch(`${API_BASE}/assistant-tasks-mark?t=${encodeURIComponent(TOKEN)}&id=${id}&auto_run=${newAutoRun}&task_type=${newTaskType}&context=${encodeURIComponent(newContext)}`));
@@ -601,6 +660,7 @@ function renderList(tasks) {
     if (badge) textWrap.appendChild(badge);
     row.appendChild(time);
     row.appendChild(textWrap);
+    appendTagPills(row, t);
     if (t.meeting_name) {
       const pill = document.createElement("span");
       pill.className = "meeting-pill";
@@ -648,6 +708,7 @@ function renderBoard(tasks) {
       const when = document.createElement("span");
       when.textContent = formatDate(t.created_at);
       meta.appendChild(when);
+      appendTagPills(meta, t);
       if (t.meeting_name) {
         const pill = document.createElement("span");
         pill.className = "meeting-pill";

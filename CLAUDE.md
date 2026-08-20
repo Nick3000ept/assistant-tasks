@@ -48,6 +48,8 @@ MVP + привязка задач к совещаниям. Список зада
   совещание одновременно — «Найти активное» берёт самое свежее с `ended_at IS NULL`).
 - В `tasks` добавлена колонка `meeting_id` (nullable, внешний ключ на `meetings.id`) —
   задачи без активного совещания сохраняются с `meeting_id = NULL`.
+- В `tasks` есть колонка `tags` (text, nullable) — теги задачи строкой через запятую
+  (например «СБ3, КЛАД»); заполняется только из админки (2026-08-20).
 
 ## Подключения
 
@@ -56,7 +58,7 @@ MVP + привязка задач к совещаниям. Список зада
 | Бот | `@AI_kuzkin_bot`, токен — см. `../ДОСТУПЫ.md`, раздел «Телеграм-бот задач (Assistant)» |
 | Сервер | Timeweb 5.129.228.135 (тот же, где n8n и VPN — см. `../n8n-hub/CLAUDE.md`) |
 | База данных | Docker-контейнер `tasks-db` (postgres:16-alpine, том `tasks_pg_data`), в сети Docker `app-net` вместе с контейнером `n8n` |
-| Таблицы | `tasks` (id, chat_id, user_name, text, status, created_at, done_at, meeting_id) и `meetings` (id, name, started_at, ended_at) в базе `tasksdb` |
+| Таблицы | `tasks` (id, chat_id, user_name, text, status, created_at, done_at, meeting_id, tags) и `meetings` (id, name, started_at, ended_at) в базе `tasksdb` |
 | n8n workflow | id `cChSoVNfUB34jrFT`, «Task Bot — добавление задачи» |
 | n8n credentials | «Task Bot Telegram» (id `iGCobtYiUUFdbEK9`), «Task Bot Postgres» (id `O7C4uvd1yrZ9uu3n`) |
 
@@ -101,6 +103,8 @@ Telegram Trigger → Owner only (IF: from.id = 325113969) → Classify (Code: о
 - **Список** — все задачи одним списком, отсортированы по дате создания (новые сверху);
   у каждой строки дата и время, название совещания — серым тэгом справа (решение
   пользователя 2026-08-19, раньше была группировка по совещаниям), кнопка удаления.
+  Рядом — теги задачи (синие «пилюли»); задаются в окне задачи, поле «Теги» —
+  свободный ввод через запятую с подсказками из уже использованных (2026-08-20).
 - **Канбан** — три колонки (Открыта / В работе / Готово), карточки перетаскиваются
   мышью между колонками (меняет статус), у каждой карточки есть кнопка удаления;
   под текстом карточки — дата и время создания и тэг совещания (2026-08-19).
@@ -121,6 +125,7 @@ Telegram Trigger → Owner only (IF: from.id = 325113969) → Classify (Code: о
 | `/webhook/assistant-tasks-status` | `id`, `status` (`open`/`in_progress`/`done`) | Меняет статус; `done` дополнительно проставляет `done_at = now()`, любой другой статус сбрасывает `done_at` в NULL |
 | `/webhook/assistant-tasks-delete` | `id` | Удаляет задачу безвозвратно (без корзины) |
 | `/webhook/assistant-tasks-edit` | `id`, `text` | Меняет название (текст) задачи |
+| `/webhook/assistant-tasks-tags` | `id`, `tags` | Сохраняет теги задачи (строка через запятую; пустая — очищает) |
 | `/webhook/assistant-tasks-mark` | `id`, `context`, `auto_run` (`true`/`false`) | Ставит/снимает пометку для ночного агента, сохраняет контекст, сбрасывает `run_status`/`run_result` |
 | `/webhook/assistant-tasks-queue` | — | Для облачного агента: задачи с `auto_run=true` и ещё не обработанные |
 | `/webhook/assistant-tasks-runresult` | `id`, `run_status`, `run_result` | Для облачного агента: записать результат прогона задачи |
