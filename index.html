@@ -332,6 +332,17 @@
     font-weight: 600;
     cursor: pointer;
   }
+  #view-board .add-task-btn { margin: 0 0 12px; }
+  .show-more-btn {
+    display: block;
+    width: 100%;
+    border: none;
+    background: none;
+    color: var(--accent);
+    font-size: 13px;
+    padding: 10px;
+    cursor: pointer;
+  }
 </style>
 </head>
 <body>
@@ -343,13 +354,13 @@
 
   <div id="view-list" class="view active">
     <div id="content" class="loading">Загрузка…</div>
+    <button class="add-task-btn">+ Добавить задачу</button>
   </div>
 
   <div id="view-board" class="view">
+    <button class="add-task-btn">+ Добавить задачу</button>
     <div id="board" class="board"></div>
   </div>
-
-  <button id="add-task-btn" class="add-task-btn">+ Добавить задачу</button>
 
   <div id="modal-overlay" class="modal-overlay">
     <div class="modal">
@@ -539,6 +550,26 @@ function refreshTagSuggest() {
 }
 
 let tasksCache = [];
+const DONE_VISIBLE = 10;
+let doneExpanded = false;
+
+function byNewest(a, b) {
+  const ta = a.created_at ? new Date(a.created_at).getTime() : 0;
+  const tb = b.created_at ? new Date(b.created_at).getTime() : 0;
+  return tb - ta || (b.id || 0) - (a.id || 0);
+}
+
+function buildDoneToggle(hiddenCount) {
+  const btn = document.createElement("button");
+  btn.className = "show-more-btn";
+  btn.textContent = doneExpanded ? "Свернуть" : `Показать ещё ${hiddenCount}`;
+  btn.addEventListener("click", () => {
+    doneExpanded = !doneExpanded;
+    renderList(tasksCache);
+    renderBoard(tasksCache);
+  });
+  return btn;
+}
 
 async function loadTasks() {
   const content = document.getElementById("content");
@@ -673,7 +704,7 @@ async function saveModal() {
   await Promise.all(requests);
 }
 
-document.getElementById("add-task-btn").addEventListener("click", openNewTaskModal);
+document.querySelectorAll(".add-task-btn").forEach((btn) => btn.addEventListener("click", openNewTaskModal));
 document.getElementById("modal-save").addEventListener("click", saveModal);
 document.getElementById("modal-close").addEventListener("click", closeModal);
 document.getElementById("modal-overlay").addEventListener("click", (e) => {
@@ -701,11 +732,7 @@ function renderList(tasks) {
     return;
   }
 
-  const sorted = [...tasks].sort((a, b) => {
-    const ta = a.created_at ? new Date(a.created_at).getTime() : 0;
-    const tb = b.created_at ? new Date(b.created_at).getTime() : 0;
-    return tb - ta || (b.id || 0) - (a.id || 0);
-  });
+  const sorted = [...tasks].sort(byNewest);
 
   content.className = "";
   content.innerHTML = "";
@@ -754,7 +781,9 @@ function renderList(tasks) {
     title.className = "group-title";
     title.textContent = "Готовые";
     content.appendChild(title);
-    content.appendChild(buildRows(done));
+    const visible = doneExpanded ? done : done.slice(0, DONE_VISIBLE);
+    content.appendChild(buildRows(visible));
+    if (done.length > DONE_VISIBLE) content.appendChild(buildDoneToggle(done.length - DONE_VISIBLE));
   }
 }
 
@@ -771,7 +800,16 @@ function renderBoard(tasks) {
     title.textContent = STATUS_LABELS[status];
     column.appendChild(title);
 
-    for (const t of tasks.filter((x) => x.status === status)) {
+    let columnTasks = tasks.filter((x) => x.status === status);
+    let hiddenDone = 0;
+    if (status === "done") {
+      columnTasks = [...columnTasks].sort(byNewest);
+      if (!doneExpanded && columnTasks.length > DONE_VISIBLE) {
+        hiddenDone = columnTasks.length - DONE_VISIBLE;
+        columnTasks = columnTasks.slice(0, DONE_VISIBLE);
+      }
+    }
+    for (const t of columnTasks) {
       const card = document.createElement("div");
       card.className = "card";
       card.draggable = true;
@@ -815,6 +853,10 @@ function renderBoard(tasks) {
       });
 
       column.appendChild(card);
+    }
+
+    if (status === "done" && (hiddenDone > 0 || (doneExpanded && columnTasks.length > DONE_VISIBLE))) {
+      column.appendChild(buildDoneToggle(hiddenDone));
     }
 
     column.addEventListener("dragover", (e) => {
