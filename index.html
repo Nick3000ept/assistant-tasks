@@ -252,6 +252,12 @@
   .modal .close-btn { background: var(--col-bg); color: var(--text); }
   .modal .delete-btn { background: none; color: var(--danger); }
 
+  .group-title {
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--muted);
+    margin: 18px 4px 8px;
+  }
   .empty, .loading, .error {
     color: var(--muted);
     padding: 24px 4px;
@@ -703,39 +709,53 @@ function renderList(tasks) {
 
   content.className = "";
   content.innerHTML = "";
-  const list = document.createElement("div");
-  list.className = "task-list";
 
-  for (const t of sorted) {
-    const row = document.createElement("div");
-    row.className = "task-row" + (t.status === "done" ? " status-done" : "");
-    const time = document.createElement("span");
-    time.className = "time";
-    time.textContent = formatDate(t.created_at);
-    const textWrap = document.createElement("span");
-    textWrap.className = "text";
-    textWrap.textContent = t.text;
-    textWrap.title = "Открыть задачу";
-    textWrap.addEventListener("click", () => openTaskModal(t.id));
-    row.appendChild(time);
-    row.appendChild(textWrap);
-    if (t.meeting_name) {
-      const pill = document.createElement("span");
-      pill.className = "meeting-pill";
-      pill.textContent = t.meeting_name;
-      pill.title = "Совещание: " + t.meeting_name + (t.meeting_date ? " (" + formatDate(t.meeting_date) + ")" : "");
-      row.appendChild(pill);
+  const buildRows = (items) => {
+    const list = document.createElement("div");
+    list.className = "task-list";
+    for (const t of items) {
+      const row = document.createElement("div");
+      row.className = "task-row" + (t.status === "done" ? " status-done" : "");
+      const time = document.createElement("span");
+      time.className = "time";
+      time.textContent = formatDate(t.created_at);
+      const textWrap = document.createElement("span");
+      textWrap.className = "text";
+      textWrap.textContent = t.text;
+      textWrap.title = "Открыть задачу";
+      textWrap.addEventListener("click", () => openTaskModal(t.id));
+      row.appendChild(time);
+      row.appendChild(textWrap);
+      if (t.meeting_name) {
+        const pill = document.createElement("span");
+        pill.className = "meeting-pill";
+        pill.textContent = t.meeting_name;
+        pill.title = "Совещание: " + t.meeting_name + (t.meeting_date ? " (" + formatDate(t.meeting_date) + ")" : "");
+        row.appendChild(pill);
+      }
+      row.appendChild(buildTagsCell(t));
+      const del = document.createElement("button");
+      del.className = "del-btn";
+      del.textContent = "✕";
+      del.title = "Удалить";
+      del.addEventListener("click", (e) => { e.stopPropagation(); deleteTask(t.id); });
+      row.appendChild(del);
+      list.appendChild(row);
     }
-    row.appendChild(buildTagsCell(t));
-    const del = document.createElement("button");
-    del.className = "del-btn";
-    del.textContent = "✕";
-    del.title = "Удалить";
-    del.addEventListener("click", (e) => { e.stopPropagation(); deleteTask(t.id); });
-    row.appendChild(del);
-    list.appendChild(row);
+    return list;
+  };
+
+  const active = sorted.filter((t) => t.status !== "done");
+  const done = sorted.filter((t) => t.status === "done");
+
+  if (active.length) content.appendChild(buildRows(active));
+  if (done.length) {
+    const title = document.createElement("div");
+    title.className = "group-title";
+    title.textContent = "Готовые";
+    content.appendChild(title);
+    content.appendChild(buildRows(done));
   }
-  content.appendChild(list);
 }
 
 function renderBoard(tasks) {
