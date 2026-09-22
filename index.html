@@ -1,410 +1,345 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ru">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Задачи — Assistant</title>
+<meta name="viewport" content="width=1024">
+<title>Аконс · Задачи</title>
 <style>
-  :root {
-    color-scheme: light dark;
-    --bg: #f5f5f7;
-    --card: #ffffff;
-    --text: #1c1c1e;
-    --muted: #6e6e73;
-    --border: #e3e3e6;
-    --accent: #0a84ff;
-    --danger: #ff453a;
-    --col-bg: #ececef;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #1c1c1e;
-      --card: #2c2c2e;
-      --text: #f2f2f7;
-      --muted: #9a9a9e;
-      --border: #3a3a3c;
-      --col-bg: #242426;
-    }
-  }
-  * { box-sizing: border-box; }
-  body {
-    margin: 0;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    background: var(--bg);
-    color: var(--text);
-    padding: 16px;
-  }
-  h1 {
-    font-size: 20px;
-    margin: 0 0 12px;
-  }
-  .tabs {
-    display: flex;
-    gap: 8px;
-    margin-bottom: 16px;
-  }
-  .tab-btn {
-    border: 1px solid var(--border);
-    background: var(--card);
-    color: var(--text);
-    padding: 8px 16px;
-    border-radius: 8px;
-    font-size: 14px;
-    cursor: pointer;
-  }
-  .tab-btn.active {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: #fff;
-  }
-  .view { display: none; }
-  .view.active { display: block; }
+/* ============================================================
+   ДИЗАЙН-КОД АКОНС — базовые стили админки (Дизайн_стандарт/DESIGN.md).
+   Переменные не переименовывать, новые цвета и размеры не добавлять.
+   ============================================================ */
+:root{
+  --bg:#f5f6f8; --panel:#ffffff; --panel2:#f7f8fa; --panel3:#eef0f3;
+  --border:#e4e7ec; --border2:#d0d5dd;
+  --text:#101828; --text2:#344054; --muted:#667085;
+  --acc:#2563eb; --acc-h:#1d4ed8; --acc-soft:#eaf0ff; --acc-line:#b9ccf9;
+  --ok:#067647; --ok-bg:#ecfdf3; --ok-line:#abefc6; --ok-solid:#16a34a;
+  --warn:#b54708; --warn-bg:#fffaeb; --warn-line:#fedf89;
+  --bad:#b42318; --bad-bg:#fef3f2; --bad-line:#fecdca; --bad-solid:#dc2626;
+  --info:#175cd3; --info-bg:#eff4ff; --info-line:#b2ccff;
+  --dark:#1b2432; --dark-h:#273245; --dark-text:#c9d1dc;
+  --h:40px; --h-sm:32px; --row:44px;
+  --r:8px; --r-lg:12px; --r-sm:6px;
+  --shadow-sm:0 1px 2px rgba(16,24,40,.06); --shadow:0 12px 32px rgba(16,24,40,.16);
+  --ring:0 0 0 3px rgba(37,99,235,.2);
+  --stick:121px; /* шапка 56 + панель действий; пересчитывается скриптом */
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0}
+body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;font-size:15px;line-height:1.5;background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased}
+a{color:var(--acc);text-decoration:none}
+a:hover{text-decoration:underline}
+h1,h2,h3{margin:0;line-height:1.25;letter-spacing:-.01em}
+h1{font-size:22px;font-weight:700}
+h2{font-size:17px;font-weight:600}
+h3{font-size:15px;font-weight:600}
+.muted{color:var(--muted);font-size:13px}
+.ic{width:18px;height:18px;flex:none;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.ic.sm{width:16px;height:16px}
 
-  .task-list {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    margin-bottom: 14px;
-    overflow: hidden;
-  }
-  .task-row .tags-cell {
-    flex: none;
-    width: 180px;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
-    justify-content: flex-end;
-    align-items: center;
-    cursor: pointer;
-    position: relative;
-  }
-  .tags-cell .tags-placeholder {
-    color: var(--muted);
-    font-size: 12px;
-    border: 1px dashed var(--border);
-    border-radius: 999px;
-    padding: 1px 8px;
-    opacity: 0;
-  }
-  .task-row:hover .tags-placeholder { opacity: 1; }
-  .tags-menu {
-    position: absolute;
-    top: 100%;
-    right: 0;
-    margin-top: 4px;
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 8px;
-    z-index: 50;
-    box-shadow: 0 4px 16px rgba(0,0,0,0.18);
-    min-width: 180px;
-    max-height: 240px;
-    overflow: auto;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    cursor: default;
-  }
-  .tags-menu label {
-    display: flex;
-    gap: 6px;
-    align-items: center;
-    font-size: 13px;
-    cursor: pointer;
-    white-space: nowrap;
-    margin: 0;
-  }
-  .tags-menu .new-tag-row { display: flex; gap: 4px; margin-top: 2px; }
-  .tags-menu .new-tag-row input {
-    flex: 1;
-    min-width: 0;
-    font-size: 13px;
-    padding: 4px 6px;
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    background: var(--bg);
-    color: inherit;
-  }
-  .tags-menu .new-tag-row button {
-    font-size: 12px;
-    padding: 4px 8px;
-    border: 1px solid var(--border);
-    background: none;
-    border-radius: 6px;
-    cursor: pointer;
-    color: var(--accent);
-  }
-  .tag-pill {
-    display: inline-block;
-    color: var(--accent);
-    font-size: 12px;
-    border: 1px solid var(--accent);
-    border-radius: 999px;
-    padding: 1px 8px;
-    white-space: nowrap;
-    max-width: 160px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    vertical-align: middle;
-    opacity: 0.85;
-  }
-  .card .card-meta .tag-pill { font-size: 11px; }
-  .task-row .meeting-pill {
-    display: inline-block;
-    color: var(--muted);
-    font-size: 12px;
-    border: 1px solid var(--border);
-    border-radius: 999px;
-    padding: 1px 8px;
-    white-space: nowrap;
-    max-width: 160px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    vertical-align: middle;
-  }
-  .task-row {
-    padding: 10px 16px;
-    border-bottom: 1px solid var(--border);
-    font-size: 15px;
-    display: flex;
-    align-items: baseline;
-    gap: 8px;
-  }
-  .task-row:last-child { border-bottom: none; }
-  .task-row .time {
-    color: var(--muted);
-    font-size: 12px;
-    white-space: nowrap;
-  }
-  .task-row .text { flex: 1; }
-  .status-done .text { text-decoration: line-through; color: var(--muted); }
-  .del-btn {
-    border: none;
-    background: none;
-    color: var(--muted);
-    font-size: 16px;
-    cursor: pointer;
-    line-height: 1;
-    padding: 2px 4px;
-  }
-  .del-btn:hover { color: var(--danger); }
-  .task-row .text, .card .card-text { cursor: pointer; }
+/* ---------- Шапка ---------- */
+.topbar{position:sticky;top:0;z-index:100;height:56px;background:var(--dark);color:#fff;display:flex;align-items:center;gap:20px;padding:0 24px}
+.topbar .back{display:inline-flex;align-items:center;gap:4px;color:var(--dark-text);font-size:14px;padding:6px 8px;margin-left:-8px;border-radius:var(--r-sm)}
+.topbar .back:hover{background:var(--dark-h);color:#fff;text-decoration:none}
+.brand{display:flex;align-items:center;gap:10px;font-size:16px;font-weight:600}
+.brand .mark{width:28px;height:28px;border-radius:7px;background:var(--acc);display:grid;place-items:center;font-size:15px;font-weight:700;color:#fff}
+.brand .app{color:var(--dark-text);font-weight:500}
+.brand .app::before{content:"/";margin-right:8px;color:#4b5565}
+.topbar .spacer{flex:1}
 
-  .modal-overlay {
-    display: none;
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.4);
-    align-items: center;
-    justify-content: center;
-    padding: 16px;
-    z-index: 100;
-  }
-  .modal-overlay.open { display: flex; }
-  .modal {
-    background: var(--card);
-    border-radius: 12px;
-    padding: 20px;
-    width: 100%;
-    max-width: 480px;
-    max-height: 90vh;
-    overflow-y: auto;
-  }
-  .modal h2 { font-size: 16px; margin: 0 0 14px; }
-  .modal label {
-    display: block;
-    font-size: 12px;
-    color: var(--muted);
-    margin: 12px 0 4px;
-  }
-  .modal textarea, .modal select {
-    width: 100%;
-    font: inherit;
-    color: inherit;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 8px 10px;
-  }
-  .modal textarea { resize: vertical; min-height: 44px; }
-  .modal .meta {
-    font-size: 12px;
-    color: var(--muted);
-    margin-top: 12px;
-    line-height: 1.6;
-  }
-  .modal .meta a { color: var(--accent); }
-  .modal .actions {
-    display: flex;
-    justify-content: space-between;
-    gap: 8px;
-    margin-top: 18px;
-  }
-  .modal button {
-    border: none;
-    border-radius: 8px;
-    padding: 9px 16px;
-    font-size: 14px;
-    cursor: pointer;
-  }
-  .modal .save-btn { background: var(--accent); color: #fff; }
-  .modal .close-btn { background: var(--col-bg); color: var(--text); }
-  .modal .delete-btn { background: none; color: var(--danger); }
+/* ---------- Панель действий ---------- */
+.toolbar{position:sticky;top:56px;z-index:90;background:var(--panel);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;padding:12px 24px;flex-wrap:wrap}
+.toolbar .spacer{flex:1}
+.toolbar .status{font-size:13px;color:var(--muted);white-space:nowrap}
+.tabs{display:flex;gap:2px;background:var(--panel3);padding:3px;border-radius:var(--r)}
+.tab{height:34px;padding:0 14px;border-radius:var(--r-sm);font-size:14px;font-weight:500;color:var(--text2);cursor:pointer;border:0;background:none;font-family:inherit;white-space:nowrap}
+.tab:hover{color:var(--text)}
+.tab.active{background:var(--panel);color:var(--text);font-weight:600;box-shadow:var(--shadow-sm)}
+.search{position:relative}
+.search .ic{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--muted);pointer-events:none}
+.search input{padding-left:38px}
 
-  .group-title {
-    font-weight: 600;
-    font-size: 14px;
-    color: var(--muted);
-    margin: 18px 4px 8px;
-  }
-  .empty, .loading, .error {
-    color: var(--muted);
-    padding: 24px 4px;
-    text-align: center;
-  }
-  .error { color: var(--danger); }
+/* ---------- Контент ---------- */
+main{max-width:1400px;margin:0 auto;padding:24px}
+.page-head{display:flex;align-items:flex-start;gap:16px;margin-bottom:20px}
+.page-head .sub{font-size:14px;color:var(--muted);margin-top:4px;min-height:21px}
+.section{margin-top:28px}
+.sec-head{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.sec-head .count{font-size:13px;color:var(--muted);font-weight:500;padding-top:2px}
+.group-label{font-size:13px;font-weight:600;color:var(--text2);margin:20px 0 12px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+.view{display:none}
+.view.active{display:block}
+.more{margin-top:8px;text-align:center}
 
-  .board {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 12px;
-  }
-  @media (max-width: 700px) {
-    .board { grid-template-columns: 1fr; }
-  }
-  .column {
-    background: var(--col-bg);
-    border-radius: 12px;
-    padding: 10px;
-    min-height: 120px;
-  }
-  .column-title {
-    font-weight: 600;
-    font-size: 14px;
-    padding: 4px 6px 10px;
-  }
-  .card {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 10px;
-    margin-bottom: 8px;
-    font-size: 14px;
-    cursor: grab;
-    display: flex;
-    gap: 6px;
-    align-items: flex-start;
-  }
-  .card.dragging { opacity: 0.4; }
-  .card .card-text { flex: 1; }
-  .card .card-meta {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 8px;
-    margin-top: 6px;
-    color: var(--muted);
-    font-size: 11px;
-  }
-  .card .card-meta .meeting-pill {
-    display: inline-block;
-    border: 1px solid var(--border);
-    border-radius: 999px;
-    padding: 1px 8px;
-    white-space: nowrap;
-    max-width: 160px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .column.drag-over { outline: 2px dashed var(--accent); outline-offset: -2px; }
+/* ---------- Кнопки ---------- */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:var(--h);padding:0 16px;font-family:inherit;font-size:14px;font-weight:600;line-height:1;color:var(--text2);background:var(--panel);border:1px solid var(--border2);border-radius:var(--r);cursor:pointer;white-space:nowrap;box-shadow:var(--shadow-sm);transition:background .12s,border-color .12s}
+.btn:hover{background:var(--panel2);color:var(--text)}
+.btn:focus-visible{outline:none;box-shadow:var(--ring)}
+.btn.pri{background:var(--acc);border-color:var(--acc);color:#fff}
+.btn.pri:hover{background:var(--acc-h);border-color:var(--acc-h)}
+.btn.danger{color:var(--bad);border-color:var(--bad-line)}
+.btn.danger:hover{background:var(--bad-bg)}
+.btn.ghost{border-color:transparent;background:transparent;color:var(--acc);box-shadow:none;padding:0 10px}
+.btn.ghost:hover{background:var(--acc-soft)}
+.btn.ghost.del{color:var(--muted)}
+.btn.ghost.del:hover{background:var(--bad-bg);color:var(--bad)}
+.btn.sm{height:var(--h-sm);padding:0 12px;font-size:13px}
+.btn.icon{width:var(--h);padding:0}
+.btn.icon.sm{width:var(--h-sm)}
+.btn:disabled{opacity:.55;cursor:default;pointer-events:none}
 
-  .add-task-btn {
-    display: block;
-    width: 100%;
-    margin-top: 16px;
-    padding: 12px;
-    border: none;
-    border-radius: 10px;
-    background: var(--accent);
-    color: #fff;
-    font-size: 15px;
-    font-weight: 600;
-    cursor: pointer;
-  }
-  #view-board .add-task-btn { margin: 0 0 12px; }
-  .show-more-btn {
-    display: block;
-    width: 100%;
-    border: none;
-    background: none;
-    color: var(--accent);
-    font-size: 13px;
-    padding: 10px;
-    cursor: pointer;
-  }
+/* ---------- Поля ---------- */
+label{display:block;font-size:13px;font-weight:500;color:var(--text2);margin-bottom:6px}
+label .req{color:var(--bad-solid)}
+input,select,textarea{font-family:inherit;font-size:14px;line-height:1.4;color:var(--text);height:var(--h);padding:0 12px;background:var(--panel);border:1px solid var(--border2);border-radius:var(--r);width:100%;box-shadow:var(--shadow-sm);transition:border-color .12s,box-shadow .12s}
+input::placeholder,textarea::placeholder{color:#98a2b3}
+select{appearance:none;-webkit-appearance:none;padding-right:36px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23667085' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;cursor:pointer;text-overflow:ellipsis}
+textarea{height:auto;min-height:96px;padding:10px 12px;resize:vertical}
+input:hover,select:hover,textarea:hover{border-color:#b8c0cc}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--acc);box-shadow:var(--ring)}
+.toolbar select{width:150px}
+.toolbar select#f-meeting{width:190px}
+.toolbar .search{flex:1 1 160px;max-width:280px}
+.toolbar .search input{width:100%}
+select.set{background-color:var(--acc-soft);border-color:var(--acc-line);color:var(--acc-h);font-weight:500}
+.field{margin-bottom:16px}
+.field .hint{font-size:13px;color:var(--muted);margin-top:6px}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.meta{font-size:13px;color:var(--muted);line-height:1.6}
+
+/* ---------- Таблица ---------- */
+.tbl-wrap{background:var(--panel);border:1px solid var(--border);border-radius:var(--r-lg);box-shadow:var(--shadow-sm);overflow:clip}
+table{border-collapse:separate;border-spacing:0;width:100%;font-size:14px}
+th{position:sticky;top:var(--stick);z-index:2;background:var(--panel2);font-size:13px;font-weight:600;color:var(--muted);text-align:left;padding:0 16px;height:44px;border-bottom:1px solid var(--border);white-space:nowrap;vertical-align:middle}
+th.sortable{cursor:pointer;user-select:none}
+th.sortable:hover{color:var(--text2)}
+th .ic{width:14px;height:14px;vertical-align:-2px;margin-left:4px;opacity:0;transition:transform .12s}
+th.sorted .ic{opacity:1}
+th.sorted.asc .ic{transform:rotate(180deg)}
+td{padding:0 16px;height:var(--row);border-bottom:1px solid var(--border);white-space:nowrap;vertical-align:middle;color:var(--text)}
+td.sec{color:var(--text2)}
+td.act{text-align:right;width:1%}
+td.task{white-space:normal;word-break:break-word;min-width:280px;font-weight:500;cursor:pointer;padding-top:10px;padding-bottom:10px}
+td.task:hover{color:var(--acc-h)}
+tr.done td.task{text-decoration:line-through;color:var(--muted);font-weight:400}
+td.tags-cell{white-space:normal;min-width:180px;max-width:280px;cursor:pointer;padding-top:8px;padding-bottom:8px}
+td.meeting{max-width:200px;overflow:hidden;text-overflow:ellipsis}
+td.created{font-variant-numeric:tabular-nums}
+tbody tr:last-child td{border-bottom:0}
+tbody tr:hover td{background:var(--panel2)}
+.empty{padding:56px 24px;text-align:center;color:var(--muted);display:flex;flex-direction:column;align-items:center;gap:6px}
+.empty .ic{width:36px;height:36px;color:#c2c9d3;stroke-width:1.5;margin-bottom:6px}
+.empty b{color:var(--text2);font-weight:600;font-size:15px}
+.empty .btn{margin-top:12px}
+
+/* ---------- Статусы (пилюли) ---------- */
+.pill{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 10px;border-radius:999px;font-size:13px;font-weight:500;line-height:1;background:var(--panel3);color:var(--text2);border:1px solid transparent;white-space:nowrap}
+.pill::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor;opacity:.9}
+.pill.ok{background:var(--ok-bg);color:var(--ok);border-color:var(--ok-line)}
+.pill.warn{background:var(--warn-bg);color:var(--warn);border-color:var(--warn-line)}
+button.pill{cursor:pointer;font-family:inherit}
+button.pill:hover{border-color:currentColor}
+
+/* ---------- Теги ---------- */
+.tags{display:flex;flex-wrap:wrap;gap:6px}
+.tag{display:inline-flex;align-items:center;gap:5px;height:26px;padding:0 9px;border-radius:var(--r-sm);font-size:13px;line-height:1;background:var(--panel2);border:1px solid var(--border);color:var(--text2);max-width:180px}
+.tag span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tag.add{border-style:dashed;border-color:var(--border2);color:var(--muted);cursor:pointer;background:transparent}
+.tag.add:hover{color:var(--acc);border-color:var(--acc)}
+
+/* ---------- Всплывающее меню (статус, теги) ---------- */
+.pop{position:fixed;z-index:150;min-width:220px;max-width:320px;max-height:340px;overflow:auto;background:var(--panel);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow);padding:6px}
+.pop[hidden]{display:none}
+.mi{display:flex;align-items:center;gap:10px;width:100%;min-height:38px;padding:0 10px;border:0;background:none;border-radius:var(--r-sm);font-family:inherit;font-size:14px;line-height:1.3;color:var(--text);text-align:left;cursor:pointer;margin:0;font-weight:400}
+.mi:hover{background:var(--panel2)}
+.mi.active{background:var(--acc-soft);color:var(--acc-h);font-weight:500}
+.mi input[type=checkbox]{width:18px;height:18px;margin:0;accent-color:var(--acc);box-shadow:none;flex:none;padding:0}
+.pop .sep{height:1px;background:var(--border);margin:6px 4px}
+.pop .new-row{display:flex;gap:6px;padding:2px}
+.pop .new-row input{height:36px;flex:1;min-width:0}
+.pop .new-row .btn{height:36px}
+
+/* ---------- Канбан ---------- */
+.board{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;align-items:start}
+.column{background:var(--panel3);border-radius:var(--r-lg);padding:12px;min-height:200px}
+.column.drag-over{outline:2px dashed var(--acc);outline-offset:-2px}
+.col-head{display:flex;align-items:center;gap:8px;padding:2px 4px 10px;font-size:15px;font-weight:600}
+.col-head .n{font-size:13px;font-weight:600;color:var(--muted);background:var(--panel);border:1px solid var(--border);padding:0 8px;height:22px;display:inline-flex;align-items:center;border-radius:999px;font-variant-numeric:tabular-nums}
+.col-empty{font-size:13px;color:var(--muted);padding:8px 4px}
+.kcard{background:var(--panel);border:1px solid var(--border);border-radius:var(--r);padding:12px;margin-bottom:8px;cursor:grab;font-size:14px}
+.kcard.dragging{opacity:.5;box-shadow:var(--shadow)}
+.kcard .k-text{cursor:pointer;white-space:pre-wrap;word-break:break-word;font-weight:500}
+.kcard .k-text:hover{color:var(--acc-h)}
+.kcard.done .k-text{text-decoration:line-through;color:var(--muted);font-weight:400}
+.kcard .tags{margin-top:8px}
+.kcard .k-meta{display:flex;gap:4px 12px;flex-wrap:wrap;margin-top:8px;font-size:13px;color:var(--muted)}
+.kcard .k-actions{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;align-items:center}
+.kcard .k-actions .spacer{flex:1}
+.kcard .btn{cursor:pointer}
+
+/* ---------- Тосты ---------- */
+.toasts{position:fixed;right:24px;bottom:24px;z-index:300;display:flex;flex-direction:column-reverse;gap:8px}
+.toast{display:flex;align-items:center;gap:10px;background:var(--dark);color:#fff;padding:12px 16px;border-radius:var(--r);font-size:14px;line-height:1.4;box-shadow:var(--shadow);max-width:400px;animation:tin .18s ease-out}
+.toast.ok{background:var(--ok-solid)}
+.toast.err{background:var(--bad-solid)}
+@keyframes tin{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+/* ---------- Окно ---------- */
+.overlay{position:fixed;inset:0;background:rgba(16,24,40,.5);z-index:200;display:flex;align-items:center;justify-content:center;padding:24px}
+.overlay[hidden]{display:none}
+.modal{background:var(--panel);border-radius:var(--r-lg);box-shadow:var(--shadow);width:560px;max-width:100%;max-height:90vh;display:flex;flex-direction:column}
+.modal .m-head{display:flex;align-items:center;gap:12px;padding:20px 24px;border-bottom:1px solid var(--border)}
+.modal .m-head h2{flex:1}
+.modal .m-body{padding:24px;overflow:auto}
+.modal .m-foot{display:flex;justify-content:flex-end;gap:8px;padding:16px 24px;border-top:1px solid var(--border);background:var(--panel2);border-radius:0 0 var(--r-lg) var(--r-lg)}
+.modal .m-foot .spacer{flex:1}
+.x{display:grid;place-items:center;width:36px;height:36px;border:0;background:none;border-radius:var(--r);color:var(--muted);cursor:pointer;margin-right:-8px}
+.x:hover{background:var(--panel3);color:var(--text)}
+
+/* ---------- Узкие экраны: ноутбук 1280 и планшет ---------- */
+@media (max-width:1300px){
+  .toolbar .status{display:none}
+}
+@media (max-width:900px){
+  .form-row{grid-template-columns:1fr}
+}
 </style>
 </head>
 <body>
-  <h1>Задачи</h1>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 3v6h-6"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+  <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 5 5L20 7"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v4M12 16h.01"/></symbol>
+  <symbol id="i-inbox" viewBox="0 0 24 24"><path d="M3 13h5l2 3h4l2-3h5"/><path d="M5 4h14l2 9v7H3v-7z"/></symbol>
+  <symbol id="i-back" viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></symbol>
+</svg>
+
+<!-- Шапка -->
+<header class="topbar">
+  <a class="back" href="https://acons.space"><svg class="ic sm"><use href="#i-back"/></svg>Портал</a>
+  <div class="brand"><span class="mark">А</span>Аконс<span class="app">Задачи</span></div>
+  <div class="spacer"></div>
+</header>
+
+<!-- Панель действий -->
+<div class="toolbar" id="toolbar">
   <div class="tabs">
-    <button class="tab-btn active" data-view="list">Список</button>
-    <button class="tab-btn" data-view="board">Канбан</button>
+    <button class="tab active" data-view="list">Список</button>
+    <button class="tab" data-view="board">Канбан</button>
+  </div>
+  <select id="f-status" title="Статус">
+    <option value="">Все статусы</option>
+    <option value="open">Открыта</option>
+    <option value="in_progress">В работе</option>
+    <option value="done">Готово</option>
+  </select>
+  <select id="f-tag" title="Тег"><option value="">Все теги</option></select>
+  <select id="f-meeting" title="Совещание"><option value="">Все совещания</option></select>
+  <div class="search"><svg class="ic"><use href="#i-search"/></svg><input type="search" id="f-search" placeholder="Поиск по тексту задачи"></div>
+  <div class="spacer"></div>
+  <span class="status" id="updated"></span>
+  <button class="btn icon" id="btn-refresh" title="Обновить"><svg class="ic"><use href="#i-refresh"/></svg></button>
+  <button class="btn pri" id="btn-add"><svg class="ic"><use href="#i-plus"/></svg>Добавить задачу</button>
+</div>
+
+<main>
+  <div class="page-head">
+    <div><h1>Задачи</h1><div class="sub" id="subtitle"></div></div>
   </div>
 
+  <div id="notice" hidden></div>
+
   <div id="view-list" class="view active">
-    <div id="content" class="loading">Загрузка…</div>
-    <button class="add-task-btn">+ Добавить задачу</button>
+    <div id="content"></div>
   </div>
 
   <div id="view-board" class="view">
-    <button class="add-task-btn">+ Добавить задачу</button>
     <div id="board" class="board"></div>
   </div>
+</main>
 
-  <div id="modal-overlay" class="modal-overlay">
-    <div class="modal">
-      <h2 id="modal-title">Задача</h2>
-      <label for="modal-text">Название работы</label>
-      <textarea id="modal-text"></textarea>
+<!-- Всплывающее меню статуса / тегов -->
+<div class="pop" id="pop" hidden></div>
 
-      <label for="modal-status">Статус</label>
-      <select id="modal-status">
-        <option value="open">Открыта</option>
-        <option value="in_progress">В работе</option>
-        <option value="done">Готово</option>
-      </select>
-
-      <label for="modal-tags">Теги (через запятую)</label>
-      <input id="modal-tags" list="tags-suggest" placeholder="Например: СБ3, КЛАД">
-      <datalist id="tags-suggest"></datalist>
-
-      <div id="modal-meta" class="meta"></div>
-
-      <div class="actions">
-        <button class="delete-btn" id="modal-delete">Удалить</button>
-        <div style="display:flex; gap:8px;">
-          <button class="close-btn" id="modal-close">Отмена</button>
-          <button class="save-btn" id="modal-save">Сохранить</button>
+<!-- Окно задачи -->
+<div class="overlay" id="modal" hidden>
+  <div class="modal">
+    <div class="m-head"><h2 id="modal-title">Задача</h2><button class="x" id="modal-x" title="Закрыть"><svg class="ic"><use href="#i-x"/></svg></button></div>
+    <div class="m-body">
+      <div class="field"><label for="modal-text">Текст задачи <span class="req">*</span></label><textarea id="modal-text" placeholder="Например: подготовить акт по СБ3"></textarea></div>
+      <div class="form-row">
+        <div class="field"><label for="modal-status">Статус</label>
+          <select id="modal-status">
+            <option value="open">Открыта</option>
+            <option value="in_progress">В работе</option>
+            <option value="done">Готово</option>
+          </select>
         </div>
+        <div class="field"><label for="modal-tags">Теги</label><input id="modal-tags" list="tags-suggest" placeholder="СБ3, КЛАД"><div class="hint">Через запятую</div></div>
       </div>
+      <datalist id="tags-suggest"></datalist>
+      <div id="modal-meta-wrap"><div class="group-label">Служебное</div><div class="meta" id="modal-meta"></div></div>
+    </div>
+    <div class="m-foot">
+      <button class="btn danger" id="modal-delete">Удалить</button>
+      <span class="spacer"></span>
+      <button class="btn" id="modal-close">Отмена</button>
+      <button class="btn pri" id="modal-save">Сохранить</button>
     </div>
   </div>
+</div>
+
+<div class="toasts" id="toasts"></div>
 
 <script>
+// ============================================================
+// Настройки и состояние
+// ============================================================
 const API_BASE = "https://hub.xn--80aamvb5b.team/webhook";
 const STATUS_LABELS = { open: "Открыта", in_progress: "В работе", done: "Готово" };
 const STATUS_ORDER = ["open", "in_progress", "done"];
+const STATUS_PILL = { open: "", in_progress: "warn", done: "ok" };
+const DONE_VISIBLE = 10;
+const UI_KEY = "assistant-tasks:ui";
 
-function getToken() {
-  const params = new URLSearchParams(window.location.search);
-  return params.get("t") || "";
+const TOKEN = new URLSearchParams(window.location.search).get("t") || "";
+
+let tasksCache = [];
+let loaded = false;
+let doneExpanded = false;
+
+// Вид, фильтры, поиск и сортировка — запоминаются в браузере
+const ui = { view: "list", status: "", tag: "", meeting: "", q: "", sortKey: "created", sortDir: "desc" };
+try {
+  const saved = JSON.parse(localStorage.getItem(UI_KEY) || "{}");
+  if (saved && typeof saved === "object") Object.assign(ui, saved);
+} catch (e) {}
+if (ui.view !== "list" && ui.view !== "board") ui.view = "list";
+if (!["text", "status", "created"].includes(ui.sortKey)) ui.sortKey = "created";
+if (ui.sortDir !== "asc" && ui.sortDir !== "desc") ui.sortDir = "desc";
+if (ui.status && !STATUS_ORDER.includes(ui.status)) ui.status = "";
+["tag", "meeting", "q"].forEach((k) => { if (typeof ui[k] !== "string") ui[k] = ""; });
+
+function saveUi() {
+  try { localStorage.setItem(UI_KEY, JSON.stringify(ui)); } catch (e) {}
 }
-const TOKEN = getToken();
 
+const $ = (id) => document.getElementById(id);
+
+// ============================================================
+// Помощники: даты, теги, уведомления, иконки
+// ============================================================
 function formatDate(iso) {
   if (!iso) return "";
   const d = new Date(iso);
+  if (isNaN(d.getTime())) return "";
   return d.toLocaleString("ru-RU", {
     timeZone: "Europe/Moscow",
     day: "2-digit", month: "2-digit", year: "numeric",
@@ -412,13 +347,17 @@ function formatDate(iso) {
   });
 }
 
-function formatTime(iso) {
-  if (!iso) return "";
-  const d = new Date(iso);
-  return d.toLocaleString("ru-RU", {
-    timeZone: "Europe/Moscow",
-    hour: "2-digit", minute: "2-digit"
-  });
+function timeNow() {
+  return new Date().toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+}
+
+function createdTs(t) {
+  const ts = t.created_at ? new Date(t.created_at).getTime() : 0;
+  return isNaN(ts) ? 0 : ts;
+}
+
+function byNewest(a, b) {
+  return createdTs(b) - createdTs(a) || (b.id || 0) - (a.id || 0);
 }
 
 function parseTags(str) {
@@ -427,120 +366,175 @@ function parseTags(str) {
   return String(str).split(",").map((x) => x.trim()).filter((x) => x && !seen.has(x.toLowerCase()) && seen.add(x.toLowerCase()));
 }
 
-function appendTagPills(el, t) {
-  for (const tag of parseTags(t.tags)) {
-    const pill = document.createElement("span");
-    pill.className = "tag-pill";
-    pill.textContent = tag;
-    el.appendChild(pill);
-  }
-}
-
 function allTags() {
-  const set = new Set();
-  for (const t of tasksCache) for (const tag of parseTags(t.tags)) set.add(tag);
-  return [...set].sort((a, b) => a.localeCompare(b, "ru"));
+  const set = new Map();
+  for (const t of tasksCache) for (const tag of parseTags(t.tags)) if (!set.has(tag.toLowerCase())) set.set(tag.toLowerCase(), tag);
+  return [...set.values()].sort((a, b) => a.localeCompare(b, "ru"));
 }
 
-let openTagsMenuEl = null;
-function closeTagsMenu() {
-  if (openTagsMenuEl) { openTagsMenuEl.remove(); openTagsMenuEl = null; }
-}
-document.addEventListener("click", closeTagsMenu);
-
-function saveTags(task, tagsArr) {
-  task.tags = tagsArr.join(", ");
-  fetch(`${API_BASE}/assistant-tasks-tags?t=${encodeURIComponent(TOKEN)}&id=${task.id}&tags=${encodeURIComponent(task.tags)}`);
-}
-
-function drawPills(cell, task) {
-  const wrap = cell.querySelector(".pills-wrap");
-  wrap.innerHTML = "";
-  const tags = parseTags(task.tags);
-  if (!tags.length) {
-    const ph = document.createElement("span");
-    ph.className = "tags-placeholder";
-    ph.textContent = "+ тег";
-    wrap.appendChild(ph);
-    return;
+function allMeetings() {
+  const map = new Map();
+  for (const t of tasksCache) {
+    if (t.meeting_id == null || t.meeting_id === "") continue;
+    const key = String(t.meeting_id);
+    if (!map.has(key)) map.set(key, { id: key, name: t.meeting_name || ("Совещание " + key), date: t.meeting_date || "" });
   }
-  for (const tag of tags) {
-    const pill = document.createElement("span");
-    pill.className = "tag-pill";
-    pill.textContent = tag;
-    wrap.appendChild(pill);
-  }
-}
-
-function buildTagsMenu(task, cell) {
-  closeTagsMenu();
-  const menu = document.createElement("div");
-  menu.className = "tags-menu";
-  const current = new Set(parseTags(task.tags));
-  const tags = allTags();
-  for (const tag of tags) {
-    const label = document.createElement("label");
-    const cb = document.createElement("input");
-    cb.type = "checkbox";
-    cb.checked = current.has(tag);
-    cb.addEventListener("change", () => {
-      const set = new Set(parseTags(task.tags));
-      if (cb.checked) set.add(tag); else set.delete(tag);
-      saveTags(task, [...set]);
-      drawPills(cell, task);
-      renderBoard(tasksCache);
-    });
-    label.appendChild(cb);
-    label.appendChild(document.createTextNode(tag));
-    menu.appendChild(label);
-  }
-  const newRow = document.createElement("div");
-  newRow.className = "new-tag-row";
-  const inp = document.createElement("input");
-  inp.placeholder = tags.length ? "Новый тег" : "Первый тег";
-  const btn = document.createElement("button");
-  btn.textContent = "+";
-  btn.title = "Добавить тег";
-  const addNew = () => {
-    const v = inp.value.trim();
-    if (!v) return;
-    const set = new Set(parseTags(task.tags));
-    set.add(v);
-    saveTags(task, [...set]);
-    drawPills(cell, task);
-    renderBoard(tasksCache);
-    buildTagsMenu(task, cell);
-  };
-  inp.addEventListener("keydown", (e) => { if (e.key === "Enter") addNew(); });
-  btn.addEventListener("click", addNew);
-  newRow.appendChild(inp);
-  newRow.appendChild(btn);
-  menu.appendChild(newRow);
-  cell.appendChild(menu);
-  openTagsMenuEl = menu;
-  inp.focus();
-}
-
-function buildTagsCell(task) {
-  const cell = document.createElement("span");
-  cell.className = "tags-cell";
-  const wrap = document.createElement("span");
-  wrap.className = "pills-wrap";
-  wrap.style.display = "contents";
-  cell.appendChild(wrap);
-  drawPills(cell, task);
-  cell.title = "Теги задачи — нажмите, чтобы выбрать";
-  cell.addEventListener("click", (e) => {
-    e.stopPropagation();
-    if (e.target.closest(".tags-menu")) return;
-    if (openTagsMenuEl && cell.contains(openTagsMenuEl)) closeTagsMenu();
-    else buildTagsMenu(task, cell);
+  return [...map.values()].sort((a, b) => {
+    const ta = a.date ? new Date(a.date).getTime() : 0;
+    const tb = b.date ? new Date(b.date).getTime() : 0;
+    return (tb || 0) - (ta || 0) || a.name.localeCompare(b.name, "ru");
   });
-  return cell;
+}
+
+function icon(name, small) {
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("class", "ic" + (small ? " sm" : ""));
+  const use = document.createElementNS("http://www.w3.org/2000/svg", "use");
+  use.setAttribute("href", "#" + name);
+  svg.appendChild(use);
+  return svg;
+}
+
+function mkBtn(text, cls, act, extra) {
+  const b = document.createElement("button");
+  b.className = "btn " + cls;
+  b.textContent = text;
+  if (act) b.dataset.act = act;
+  if (extra) for (const k in extra) b.dataset[k] = extra[k];
+  return b;
+}
+
+// Уведомление: toast('Текст') / toast('Текст','ok') / toast('Текст','err')
+function toast(msg, kind) {
+  const el = document.createElement("div");
+  el.className = "toast" + (kind ? " " + kind : "");
+  const ic = kind === "ok" ? "i-check" : kind === "err" ? "i-alert" : null;
+  if (ic) el.appendChild(icon(ic));
+  el.appendChild(document.createTextNode(msg));
+  $("toasts").appendChild(el);
+  setTimeout(() => el.remove(), kind === "err" ? 6000 : 3000);
+}
+
+// ============================================================
+// Запросы к API: те же адреса и параметры, что и раньше, плюс 2 повтора с паузой
+// ============================================================
+function buildUrl(path, params) {
+  let url = `${API_BASE}/${path}?t=${encodeURIComponent(TOKEN)}`;
+  for (const k in params) if (params[k] != null) url += `&${k}=${encodeURIComponent(params[k])}`;
+  return url;
+}
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// api(path, params, {retries}) → Response (только успешный), иначе бросает ошибку.
+// Ответы 4xx (403 — неверный токен) не повторяются; сеть и 5xx — до 2 повторов.
+async function api(path, params, opts) {
+  const retries = opts && opts.retries != null ? opts.retries : 2;
+  const url = buildUrl(path, params || {});
+  let lastErr = null;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    if (attempt) await sleep(700 * attempt);
+    try {
+      const res = await fetch(url);
+      if (res.ok) return res;
+      const err = new Error("HTTP " + res.status);
+      err.status = res.status;
+      if (res.status >= 400 && res.status < 500) throw err;
+      lastErr = err;
+    } catch (e) {
+      if (e && e.status && e.status < 500) throw e;
+      lastErr = e;
+    }
+  }
+  throw lastErr || new Error("Нет связи");
+}
+
+function errMsg(e, fallback) {
+  if (e && e.status === 403) return "Доступ запрещён: неверный токен в ссылке";
+  return fallback || "Нет связи, изменение не сохранено";
+}
+
+// ============================================================
+// Фильтры и сортировка (на клиенте, общие для списка и канбана)
+// ============================================================
+function applyFilters(tasks) {
+  const q = ui.q.trim().toLowerCase();
+  const tagQ = ui.tag.toLowerCase();
+  return tasks.filter((t) => {
+    if (ui.status && t.status !== ui.status) return false;
+    if (tagQ && !parseTags(t.tags).some((x) => x.toLowerCase() === tagQ)) return false;
+    if (ui.meeting) {
+      const has = t.meeting_id != null && t.meeting_id !== "";
+      if (ui.meeting === "none") { if (has) return false; }
+      else if (!has || String(t.meeting_id) !== ui.meeting) return false;
+    }
+    if (q && !String(t.text || "").toLowerCase().includes(q)) return false;
+    return true;
+  });
+}
+
+function compareTasks(a, b) {
+  let r = 0;
+  if (ui.sortKey === "text") r = String(a.text || "").localeCompare(String(b.text || ""), "ru");
+  else if (ui.sortKey === "status") r = STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status);
+  else r = createdTs(a) - createdTs(b) || (a.id || 0) - (b.id || 0);
+  if (ui.sortDir === "desc") r = -r;
+  if (r === 0 && ui.sortKey !== "created") r = byNewest(a, b);
+  return r;
+}
+
+function setSort(key) {
+  if (ui.sortKey === key) ui.sortDir = ui.sortDir === "asc" ? "desc" : "asc";
+  else { ui.sortKey = key; ui.sortDir = key === "created" ? "desc" : "asc"; }
+  saveUi();
+  render();
+}
+
+function hasFilters() {
+  return !!(ui.status || ui.tag || ui.meeting || ui.q.trim());
+}
+
+function resetFilters() {
+  ui.status = ""; ui.tag = ""; ui.meeting = ""; ui.q = "";
+  saveUi();
+  syncFilterControls();
+  render();
+}
+
+function syncFilterControls() {
+  $("f-status").value = ui.status;
+  $("f-search").value = ui.q;
+  refreshFilterOptions();
+  for (const id of ["f-status", "f-tag", "f-meeting"]) $(id).classList.toggle("set", !!$(id).value);
+}
+
+function fillSelect(sel, firstLabel, items, current) {
+  sel.innerHTML = "";
+  const first = document.createElement("option");
+  first.value = ""; first.textContent = firstLabel;
+  sel.appendChild(first);
+  let found = current === "";
+  for (const it of items) {
+    const opt = document.createElement("option");
+    opt.value = it.value; opt.textContent = it.label;
+    sel.appendChild(opt);
+    if (it.value === current) found = true;
+  }
+  sel.value = found ? current : "";
+  return found ? current : "";
+}
+
+function refreshFilterOptions() {
+  const tagItems = allTags().map((t) => ({ value: t, label: t }));
+  const newTag = fillSelect($("f-tag"), "Все теги", tagItems, ui.tag);
+  const meetItems = [{ value: "none", label: "Без совещания" }].concat(allMeetings().map((m) => ({ value: m.id, label: m.name })));
+  const newMeeting = fillSelect($("f-meeting"), "Все совещания", meetItems, ui.meeting);
+  if (loaded && (newTag !== ui.tag || newMeeting !== ui.meeting)) { ui.tag = newTag; ui.meeting = newMeeting; saveUi(); }
+  for (const id of ["f-status", "f-tag", "f-meeting"]) $(id).classList.toggle("set", !!$(id).value);
 }
 
 function refreshTagSuggest() {
-  const dl = document.getElementById("tags-suggest");
+  const dl = $("tags-suggest");
   dl.innerHTML = "";
   for (const tag of allTags()) {
     const opt = document.createElement("option");
@@ -549,134 +543,598 @@ function refreshTagSuggest() {
   }
 }
 
-let tasksCache = [];
-const DONE_VISIBLE = 10;
-let doneExpanded = false;
+// ============================================================
+// Отрисовка
+// ============================================================
+function render() {
+  const filtered = applyFilters(tasksCache).sort(compareTasks);
+  refreshFilterOptions();
+  refreshTagSuggest();
+  $("subtitle").textContent = loaded ? `Показано ${filtered.length} из ${tasksCache.length}` : "";
+  renderList(filtered);
+  renderBoard(filtered);
+}
 
-function byNewest(a, b) {
-  const ta = a.created_at ? new Date(a.created_at).getTime() : 0;
-  const tb = b.created_at ? new Date(b.created_at).getTime() : 0;
-  return tb - ta || (b.id || 0) - (a.id || 0);
+function showNotice(node) {
+  const n = $("notice");
+  n.innerHTML = "";
+  if (node) { n.appendChild(node); n.hidden = false; }
+  else n.hidden = true;
+  document.querySelectorAll(".view").forEach((v) => v.classList.toggle("active", !node && v.id === "view-" + ui.view));
+}
+
+function emptyBox(iconName, title, text, btn) {
+  const wrap = document.createElement("div");
+  wrap.className = "tbl-wrap";
+  const box = document.createElement("div");
+  box.className = "empty";
+  box.appendChild(icon(iconName));
+  const b = document.createElement("b"); b.textContent = title; box.appendChild(b);
+  if (text) { const s = document.createElement("span"); s.textContent = text; box.appendChild(s); }
+  if (btn) box.appendChild(btn);
+  wrap.appendChild(box);
+  return wrap;
+}
+
+function buildTagsInto(container, task) {
+  container.innerHTML = "";
+  const tags = parseTags(task.tags);
+  if (!tags.length) {
+    const add = document.createElement("span");
+    add.className = "tag add";
+    add.appendChild(icon("i-plus", true));
+    const s = document.createElement("span"); s.textContent = "Добавить тег";
+    add.appendChild(s);
+    container.appendChild(add);
+    return;
+  }
+  for (const tag of tags) {
+    const el = document.createElement("span");
+    el.className = "tag";
+    const s = document.createElement("span"); s.textContent = tag; el.appendChild(s);
+    el.title = tag;
+    container.appendChild(el);
+  }
 }
 
 function buildDoneToggle(hiddenCount) {
-  const btn = document.createElement("button");
-  btn.className = "show-more-btn";
-  btn.textContent = doneExpanded ? "Свернуть" : `Показать ещё ${hiddenCount}`;
-  btn.addEventListener("click", () => {
-    doneExpanded = !doneExpanded;
-    renderList(tasksCache);
-    renderBoard(tasksCache);
-  });
-  return btn;
+  const box = document.createElement("div");
+  box.className = "more";
+  const btn = mkBtn(doneExpanded ? "Свернуть" : `Показать ещё ${hiddenCount}`, "ghost sm");
+  btn.addEventListener("click", () => { doneExpanded = !doneExpanded; render(); });
+  box.appendChild(btn);
+  return box;
 }
 
-async function loadTasks() {
-  const content = document.getElementById("content");
-  if (!TOKEN) {
-    content.className = "error";
-    content.textContent = "Нет токена доступа в ссылке (?t=...).";
+// ---------- Список ----------
+const COLUMNS = [
+  { key: "text", label: "Задача" },
+  { key: "status", label: "Статус" },
+  { label: "Теги" },
+  { label: "Совещание" },
+  { key: "created", label: "Создана" },
+  { label: "" }
+];
+
+function buildTable(items) {
+  const wrap = document.createElement("div");
+  wrap.className = "tbl-wrap";
+  const table = document.createElement("table");
+  const thead = document.createElement("thead");
+  const hr = document.createElement("tr");
+  for (const c of COLUMNS) {
+    const th = document.createElement("th");
+    th.textContent = c.label;
+    if (c.key) {
+      th.className = "sortable" + (ui.sortKey === c.key ? " sorted " + ui.sortDir : "");
+      th.dataset.sort = c.key;
+      th.title = "Сортировать";
+      th.appendChild(icon("i-chevron", true));
+    }
+    hr.appendChild(th);
+  }
+  thead.appendChild(hr);
+  table.appendChild(thead);
+
+  const tbody = document.createElement("tbody");
+  for (const t of items) {
+    const tr = document.createElement("tr");
+    tr.dataset.id = t.id;
+    if (t.status === "done") tr.className = "done";
+
+    const tdText = document.createElement("td");
+    tdText.className = "task";
+    tdText.textContent = t.text || "";
+    tdText.title = "Открыть задачу";
+    tdText.dataset.act = "open";
+    tr.appendChild(tdText);
+
+    const tdStatus = document.createElement("td");
+    const pill = document.createElement("button");
+    pill.className = "pill " + (STATUS_PILL[t.status] || "");
+    pill.textContent = STATUS_LABELS[t.status] || t.status || "—";
+    pill.title = "Сменить статус";
+    pill.dataset.act = "status";
+    tdStatus.appendChild(pill);
+    tr.appendChild(tdStatus);
+
+    const tdTags = document.createElement("td");
+    tdTags.className = "tags-cell";
+    tdTags.title = "Теги задачи: нажмите, чтобы выбрать";
+    tdTags.dataset.act = "tags";
+    const tags = document.createElement("div");
+    tags.className = "tags";
+    buildTagsInto(tags, t);
+    tdTags.appendChild(tags);
+    tr.appendChild(tdTags);
+
+    const tdMeet = document.createElement("td");
+    tdMeet.className = "sec meeting";
+    tdMeet.textContent = t.meeting_name || "—";
+    if (t.meeting_name) tdMeet.title = "Совещание: " + t.meeting_name + (t.meeting_date ? " (" + formatDate(t.meeting_date) + ")" : "");
+    tr.appendChild(tdMeet);
+
+    const tdDate = document.createElement("td");
+    tdDate.className = "sec created";
+    tdDate.textContent = formatDate(t.created_at) || "—";
+    tr.appendChild(tdDate);
+
+    const tdAct = document.createElement("td");
+    tdAct.className = "act";
+    tdAct.appendChild(mkBtn("Удалить", "ghost sm del", "delete"));
+    tr.appendChild(tdAct);
+
+    tbody.appendChild(tr);
+  }
+  table.appendChild(tbody);
+  wrap.appendChild(table);
+  return wrap;
+}
+
+function renderList(filtered) {
+  const content = $("content");
+  content.innerHTML = "";
+  if (!loaded) return;
+
+  if (!tasksCache.length) {
+    content.appendChild(emptyBox("i-inbox", "Задач нет", "Напишите задачу боту в Telegram или нажмите «Добавить задачу»"));
     return;
   }
-  try {
-    const res = await fetch(`${API_BASE}/assistant-tasks?t=${encodeURIComponent(TOKEN)}`);
-    if (!res.ok) {
-      content.className = "error";
-      content.textContent = res.status === 403
-        ? "Неверный токен доступа."
-        : `Ошибка загрузки (${res.status}).`;
-      return;
+  if (!filtered.length) {
+    const btn = mkBtn("Сбросить фильтры", "sm");
+    btn.addEventListener("click", resetFilters);
+    content.appendChild(emptyBox("i-search", "По фильтру ничего не найдено", "Измените условия поиска или сбросьте фильтры", btn));
+    return;
+  }
+
+  const active = filtered.filter((t) => t.status !== "done");
+  const done = filtered.filter((t) => t.status === "done");
+
+  if (active.length) content.appendChild(buildTable(active));
+
+  if (done.length) {
+    const sec = document.createElement("div");
+    sec.className = active.length ? "section" : "";
+    const head = document.createElement("div");
+    head.className = "sec-head";
+    const h = document.createElement("h2"); h.textContent = "Готовые";
+    const count = document.createElement("span"); count.className = "count"; count.textContent = String(done.length);
+    head.appendChild(h); head.appendChild(count);
+    sec.appendChild(head);
+    const visible = doneExpanded ? done : done.slice(0, DONE_VISIBLE);
+    sec.appendChild(buildTable(visible));
+    if (done.length > DONE_VISIBLE) sec.appendChild(buildDoneToggle(done.length - DONE_VISIBLE));
+    content.appendChild(sec);
+  }
+}
+
+// Один обработчик на весь список: сортировка по шапке и действия в строках
+$("content").addEventListener("click", (e) => {
+  const th = e.target.closest("th[data-sort]");
+  if (th) { setSort(th.dataset.sort); return; }
+  const actEl = e.target.closest("[data-act]");
+  if (!actEl) return;
+  const tr = actEl.closest("tr[data-id]");
+  if (!tr) return;
+  const id = Number(tr.dataset.id);
+  const act = actEl.dataset.act;
+  if (act === "open") openTaskModal(id);
+  else if (act === "delete") deleteTask(id);
+  else if (act === "status") { e.stopPropagation(); toggleStatusMenu(id, actEl); }
+  else if (act === "tags") { e.stopPropagation(); toggleTagsMenu(id, actEl); }
+});
+
+// ---------- Канбан ----------
+const NEXT_BUTTONS = {
+  open: [{ label: "В работу", status: "in_progress" }],
+  in_progress: [{ label: "Готово", status: "done" }, { label: "Вернуть", status: "open" }],
+  done: [{ label: "Вернуть в работу", status: "in_progress" }]
+};
+
+function renderBoard(filtered) {
+  const board = $("board");
+  board.innerHTML = "";
+  if (!loaded) return;
+
+  for (const status of STATUS_ORDER) {
+    const column = document.createElement("div");
+    column.className = "column";
+    column.dataset.status = status;
+
+    let columnTasks = filtered.filter((x) => x.status === status);
+    const total = columnTasks.length;
+    let hiddenDone = 0;
+    if (status === "done" && !doneExpanded && columnTasks.length > DONE_VISIBLE) {
+      hiddenDone = columnTasks.length - DONE_VISIBLE;
+      columnTasks = columnTasks.slice(0, DONE_VISIBLE);
     }
-    tasksCache = await res.json();
-    renderList(tasksCache);
-    renderBoard(tasksCache);
+
+    const head = document.createElement("div");
+    head.className = "col-head";
+    const title = document.createElement("span"); title.textContent = STATUS_LABELS[status];
+    const n = document.createElement("span"); n.className = "n"; n.textContent = String(total);
+    head.appendChild(title); head.appendChild(n);
+    column.appendChild(head);
+
+    if (!columnTasks.length) {
+      const em = document.createElement("div");
+      em.className = "col-empty";
+      em.textContent = "Нет задач";
+      column.appendChild(em);
+    }
+
+    for (const t of columnTasks) {
+      const card = document.createElement("div");
+      card.className = "kcard" + (t.status === "done" ? " done" : "");
+      card.draggable = true;
+      card.dataset.id = t.id;
+
+      const text = document.createElement("div");
+      text.className = "k-text";
+      text.textContent = t.text || "";
+      text.title = "Открыть задачу";
+      text.dataset.act = "open";
+      card.appendChild(text);
+
+      if (parseTags(t.tags).length) {
+        const tags = document.createElement("div");
+        tags.className = "tags";
+        tags.title = "Теги задачи: нажмите, чтобы выбрать";
+        tags.dataset.act = "tags";
+        buildTagsInto(tags, t);
+        card.appendChild(tags);
+      }
+
+      const meta = document.createElement("div");
+      meta.className = "k-meta";
+      const when = document.createElement("span");
+      when.textContent = formatDate(t.created_at);
+      meta.appendChild(when);
+      if (t.meeting_name) {
+        const m = document.createElement("span");
+        m.textContent = t.meeting_name;
+        m.title = "Совещание: " + t.meeting_name + (t.meeting_date ? " (" + formatDate(t.meeting_date) + ")" : "");
+        meta.appendChild(m);
+      }
+      card.appendChild(meta);
+
+      const actions = document.createElement("div");
+      actions.className = "k-actions";
+      for (const b of NEXT_BUTTONS[t.status] || []) actions.appendChild(mkBtn(b.label, "sm", "status", { status: b.status }));
+      const sp = document.createElement("span"); sp.className = "spacer"; actions.appendChild(sp);
+      actions.appendChild(mkBtn("Удалить", "ghost sm del", "delete"));
+      card.appendChild(actions);
+
+      card.addEventListener("dragstart", () => { card.classList.add("dragging"); closePop(); });
+      card.addEventListener("dragend", () => card.classList.remove("dragging"));
+
+      column.appendChild(card);
+    }
+
+    if (status === "done" && (hiddenDone > 0 || (doneExpanded && total > DONE_VISIBLE))) {
+      column.appendChild(buildDoneToggle(hiddenDone));
+    }
+
+    column.addEventListener("dragover", (e) => { e.preventDefault(); column.classList.add("drag-over"); });
+    column.addEventListener("dragleave", () => column.classList.remove("drag-over"));
+    column.addEventListener("drop", (e) => {
+      e.preventDefault();
+      column.classList.remove("drag-over");
+      const dragging = board.querySelector(".kcard.dragging");
+      if (!dragging) return;
+      setStatus(Number(dragging.dataset.id), status);
+    });
+
+    board.appendChild(column);
+  }
+}
+
+$("board").addEventListener("click", (e) => {
+  const actEl = e.target.closest("[data-act]");
+  if (!actEl) return;
+  const card = actEl.closest(".kcard[data-id]");
+  if (!card) return;
+  const id = Number(card.dataset.id);
+  const act = actEl.dataset.act;
+  if (act === "open") openTaskModal(id);
+  else if (act === "delete") deleteTask(id);
+  else if (act === "status") setStatus(id, actEl.dataset.status);
+  else if (act === "tags") { e.stopPropagation(); toggleTagsMenu(id, actEl); }
+});
+
+// ============================================================
+// Всплывающее меню (статус, теги) — одно на страницу, позиция фиксированная
+// ============================================================
+const pop = $("pop");
+let popState = null; // { kind, taskId, rect }
+
+function placePop(rect) {
+  pop.style.left = "0px"; pop.style.top = "0px";
+  const w = pop.offsetWidth, h = pop.offsetHeight;
+  let left = rect.left, top = rect.bottom + 6;
+  if (left + w > window.innerWidth - 8) left = Math.max(8, rect.right - w);
+  if (top + h > window.innerHeight - 8) top = Math.max(8, rect.top - 6 - h);
+  pop.style.left = left + "px";
+  pop.style.top = top + "px";
+}
+
+function closePop() {
+  if (pop.hidden) return;
+  pop.hidden = true;
+  pop.innerHTML = "";
+  popState = null;
+}
+
+function openPop(kind, taskId, rect, build) {
+  pop.innerHTML = "";
+  build(pop);
+  pop.hidden = false;
+  popState = { kind, taskId, rect };
+  placePop(rect);
+}
+
+document.addEventListener("click", (e) => {
+  if (!pop.hidden && !e.target.closest("#pop")) closePop();
+});
+window.addEventListener("scroll", (e) => {
+  if (pop.hidden) return;
+  if (e.target === pop || (e.target.nodeType === 1 && pop.contains(e.target))) return;
+  closePop();
+}, true);
+window.addEventListener("resize", closePop);
+
+function toggleStatusMenu(id, anchor) {
+  if (popState && popState.kind === "status" && popState.taskId === id) { closePop(); return; }
+  const task = tasksCache.find((t) => t.id === id);
+  if (!task) return;
+  openPop("status", id, anchor.getBoundingClientRect(), (box) => {
+    for (const s of STATUS_ORDER) {
+      const b = document.createElement("button");
+      b.className = "mi" + (task.status === s ? " active" : "");
+      const p = document.createElement("span");
+      p.className = "pill " + (STATUS_PILL[s] || "");
+      p.textContent = STATUS_LABELS[s];
+      b.appendChild(p);
+      b.addEventListener("click", () => { closePop(); setStatus(id, s); });
+      box.appendChild(b);
+    }
+  });
+}
+
+function toggleTagsMenu(id, anchor) {
+  if (popState && popState.kind === "tags" && popState.taskId === id) { closePop(); return; }
+  buildTagsMenu(id, anchor.getBoundingClientRect());
+}
+
+function buildTagsMenu(id, rect) {
+  const task = tasksCache.find((t) => t.id === id);
+  if (!task) return;
+  openPop("tags", id, rect, (box) => {
+    const current = new Set(parseTags(task.tags).map((x) => x.toLowerCase()));
+    const tags = allTags();
+    for (const tag of tags) {
+      const label = document.createElement("label");
+      label.className = "mi";
+      const cb = document.createElement("input");
+      cb.type = "checkbox";
+      cb.checked = current.has(tag.toLowerCase());
+      cb.addEventListener("change", () => {
+        const set = parseTags(task.tags).filter((x) => x.toLowerCase() !== tag.toLowerCase());
+        if (cb.checked) set.push(tag);
+        saveTags(task, set);
+      });
+      label.appendChild(cb);
+      label.appendChild(document.createTextNode(tag));
+      box.appendChild(label);
+    }
+    if (tags.length) { const sep = document.createElement("div"); sep.className = "sep"; box.appendChild(sep); }
+    const row = document.createElement("div");
+    row.className = "new-row";
+    const inp = document.createElement("input");
+    inp.placeholder = tags.length ? "Новый тег" : "Первый тег";
+    const btn = mkBtn("Добавить", "sm");
+    const addNew = () => {
+      const v = inp.value.trim();
+      if (!v) return;
+      const set = parseTags(task.tags).filter((x) => x.toLowerCase() !== v.toLowerCase());
+      set.push(v);
+      saveTags(task, set);
+      buildTagsMenu(id, rect);
+    };
+    inp.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); addNew(); } });
+    btn.addEventListener("click", addNew);
+    row.appendChild(inp);
+    row.appendChild(btn);
+    box.appendChild(row);
+    setTimeout(() => inp.focus({ preventScroll: true }), 0);
+  });
+}
+
+// ============================================================
+// Действия с задачами: оптимистично меняем вид, при ошибке откатываем
+// ============================================================
+async function saveTags(task, tagsArr) {
+  const prev = task.tags;
+  task.tags = tagsArr.join(", ");
+  render();
+  try {
+    await api("assistant-tasks-tags", { id: task.id, tags: task.tags });
+    toast("Сохранено", "ok");
   } catch (e) {
-    content.className = "error";
-    content.textContent = "Не удалось связаться с сервером.";
+    task.tags = prev;
+    render();
+    toast(errMsg(e), "err");
+  }
+}
+
+async function setStatus(id, status) {
+  const task = tasksCache.find((t) => t.id === id);
+  if (!task || !STATUS_LABELS[status] || task.status === status) return;
+  const prev = { status: task.status, done_at: task.done_at };
+  task.status = status;
+  task.done_at = status === "done" ? new Date().toISOString() : null;
+  render();
+  try {
+    await api("assistant-tasks-status", { id, status });
+    toast("Статус изменён", "ok");
+  } catch (e) {
+    Object.assign(task, prev);
+    render();
+    toast(errMsg(e), "err");
   }
 }
 
 async function deleteTask(id) {
+  const idx = tasksCache.findIndex((t) => t.id === id);
+  if (idx < 0) return;
   if (!confirm("Удалить задачу без возможности восстановить?")) return;
-  await fetch(`${API_BASE}/assistant-tasks-delete?t=${encodeURIComponent(TOKEN)}&id=${id}`);
-  tasksCache = tasksCache.filter((t) => t.id !== id);
-  renderList(tasksCache);
-  renderBoard(tasksCache);
+  closePop();
+  const task = tasksCache[idx];
+  tasksCache.splice(idx, 1);
+  render();
+  try {
+    await api("assistant-tasks-delete", { id });
+    toast("Задача удалена", "ok");
+  } catch (e) {
+    tasksCache.splice(Math.min(idx, tasksCache.length), 0, task);
+    render();
+    toast(errMsg(e, "Нет связи, задача не удалена"), "err");
+  }
 }
 
+// ============================================================
+// Окно задачи
+// ============================================================
 let modalTaskId = null;
 let modalIsNew = false;
+let modalBusy = false;
+
+function fillModalMeta(task) {
+  const meta = $("modal-meta");
+  meta.innerHTML = "";
+  const lines = [];
+  lines.push("Создана: " + (formatDate(task.created_at) || "—"));
+  lines.push("Совещание: " + (task.meeting_name ? task.meeting_name + (task.meeting_date ? " (" + formatDate(task.meeting_date) + ")" : "") : "—"));
+  if (task.done_at) lines.push("Выполнена: " + formatDate(task.done_at));
+  for (const line of lines) {
+    const div = document.createElement("div");
+    div.textContent = line;
+    meta.appendChild(div);
+  }
+}
+
+function showModal() {
+  closePop();
+  $("modal").hidden = false;
+  setTimeout(() => $("modal-text").focus(), 0);
+}
 
 function openTaskModal(id) {
   const task = tasksCache.find((t) => t.id === id);
   if (!task) return;
   modalTaskId = id;
   modalIsNew = false;
-
-  document.getElementById("modal-title").textContent = "Задача";
-  document.getElementById("modal-delete").style.display = "";
-  document.getElementById("modal-text").value = task.text || "";
-  document.getElementById("modal-status").value = task.status || "open";
-  document.getElementById("modal-tags").value = parseTags(task.tags).join(", ");
+  $("modal-title").textContent = "Задача";
+  $("modal-delete").hidden = false;
+  $("modal-meta-wrap").hidden = false;
+  $("modal-text").value = task.text || "";
+  $("modal-status").value = task.status || "open";
+  $("modal-tags").value = parseTags(task.tags).join(", ");
   refreshTagSuggest();
-
-  const meta = document.getElementById("modal-meta");
-  meta.innerHTML = "";
-  const lines = [];
-  lines.push(`Создана: ${formatDate(task.created_at)}`);
-  if (task.meeting_name) lines.push(`Совещание: ${task.meeting_name} (${formatDate(task.meeting_date)})`);
-  if (task.done_at) lines.push(`Выполнена: ${formatDate(task.done_at)}`);
-  for (const line of lines) {
-    const div = document.createElement("div");
-    div.textContent = line;
-    meta.appendChild(div);
-  }
-
-  document.getElementById("modal-overlay").classList.add("open");
+  fillModalMeta(task);
+  showModal();
 }
 
 function openNewTaskModal() {
   modalTaskId = null;
   modalIsNew = true;
-
-  document.getElementById("modal-title").textContent = "Новая задача";
-  document.getElementById("modal-delete").style.display = "none";
-  document.getElementById("modal-text").value = "";
-  document.getElementById("modal-status").value = "open";
-  document.getElementById("modal-tags").value = "";
+  $("modal-title").textContent = "Новая задача";
+  $("modal-delete").hidden = true;
+  $("modal-meta-wrap").hidden = true;
+  $("modal-text").value = "";
+  $("modal-status").value = "open";
+  $("modal-tags").value = "";
   refreshTagSuggest();
-  document.getElementById("modal-meta").innerHTML = "";
-
-  document.getElementById("modal-overlay").classList.add("open");
+  $("modal-meta").innerHTML = "";
+  showModal();
 }
 
 function closeModal() {
-  document.getElementById("modal-overlay").classList.remove("open");
+  if (modalBusy) return;
+  $("modal").hidden = true;
   modalTaskId = null;
 }
 
+function setModalBusy(busy) {
+  modalBusy = busy;
+  const b = $("modal-save");
+  b.disabled = busy;
+  b.textContent = busy ? "Сохраняю…" : "Сохранить";
+  $("modal-close").disabled = busy;
+  $("modal-delete").disabled = busy;
+}
+
 async function saveModal() {
-  const newText = document.getElementById("modal-text").value.trim();
-  const newStatus = document.getElementById("modal-status").value;
-  const newTags = parseTags(document.getElementById("modal-tags").value).join(", ");
+  if (modalBusy) return;
+  const newText = $("modal-text").value.trim();
+  const newStatus = $("modal-status").value;
+  const newTags = parseTags($("modal-tags").value).join(", ");
 
   if (modalIsNew) {
-    if (!newText) return closeModal();
+    if (!newText) { $("modal-text").focus(); return; }
+    setModalBusy(true);
+    let created = null;
+    try {
+      // Создание не повторяем автоматически: повтор мог бы завести задачу дважды
+      const res = await api("assistant-tasks-create", { text: newText }, { retries: 0 });
+      const data = await res.json();
+      created = Array.isArray(data) ? data[0] : data;
+      if (!created || created.id == null) throw new Error("Пустой ответ");
+    } catch (e) {
+      setModalBusy(false);
+      toast(errMsg(e, "Не удалось добавить задачу. Проверьте интернет и нажмите «Сохранить» ещё раз"), "err");
+      return;
+    }
+    setModalBusy(false);
     closeModal();
-    const res = await fetch(`${API_BASE}/assistant-tasks-create?t=${encodeURIComponent(TOKEN)}&text=${encodeURIComponent(newText)}`);
-    const [created] = await res.json();
-    if (!created) return;
     tasksCache.unshift(created);
+    if (newStatus !== "open") created.status = newStatus;
+    if (newTags) created.tags = newTags;
+    render();
+    toast("Задача добавлена", "ok");
+
+    const followUps = [];
     if (newStatus !== "open") {
-      await fetch(`${API_BASE}/assistant-tasks-status?t=${encodeURIComponent(TOKEN)}&id=${created.id}&status=${newStatus}`);
-      created.status = newStatus;
+      followUps.push(api("assistant-tasks-status", { id: created.id, status: newStatus }).catch((e) => { created.status = "open"; created.done_at = null; throw e; }));
     }
     if (newTags) {
-      await fetch(`${API_BASE}/assistant-tasks-tags?t=${encodeURIComponent(TOKEN)}&id=${created.id}&tags=${encodeURIComponent(newTags)}`);
-      created.tags = newTags;
+      followUps.push(api("assistant-tasks-tags", { id: created.id, tags: newTags }).catch((e) => { created.tags = ""; throw e; }));
     }
-    renderList(tasksCache);
-    renderBoard(tasksCache);
+    if (followUps.length) {
+      const results = await Promise.allSettled(followUps);
+      const failed = results.find((r) => r.status === "rejected");
+      if (failed) { render(); toast(errMsg(failed.reason, "Задача добавлена, но статус или теги не сохранились: нет связи"), "err"); }
+    }
     return;
   }
 
@@ -684,211 +1142,129 @@ async function saveModal() {
   const task = tasksCache.find((t) => t.id === id);
   if (!task) return closeModal();
 
-  const requests = [];
+  const changes = [];
   if (newText && newText !== task.text) {
-    requests.push(fetch(`${API_BASE}/assistant-tasks-edit?t=${encodeURIComponent(TOKEN)}&id=${id}&text=${encodeURIComponent(newText)}`));
+    const prev = task.text;
     task.text = newText;
+    changes.push({ run: () => api("assistant-tasks-edit", { id, text: newText }), undo: () => { task.text = prev; } });
   }
   if (newStatus !== task.status) {
-    requests.push(fetch(`${API_BASE}/assistant-tasks-status?t=${encodeURIComponent(TOKEN)}&id=${id}&status=${newStatus}`));
+    const prev = { status: task.status, done_at: task.done_at };
     task.status = newStatus;
+    task.done_at = newStatus === "done" ? new Date().toISOString() : null;
+    changes.push({ run: () => api("assistant-tasks-status", { id, status: newStatus }), undo: () => { Object.assign(task, prev); } });
   }
   if (newTags !== parseTags(task.tags).join(", ")) {
-    requests.push(fetch(`${API_BASE}/assistant-tasks-tags?t=${encodeURIComponent(TOKEN)}&id=${id}&tags=${encodeURIComponent(newTags)}`));
+    const prev = task.tags;
     task.tags = newTags;
+    changes.push({ run: () => api("assistant-tasks-tags", { id, tags: newTags }), undo: () => { task.tags = prev; } });
   }
 
   closeModal();
-  renderList(tasksCache);
-  renderBoard(tasksCache);
-  await Promise.all(requests);
+  if (!changes.length) return;
+  render();
+  const results = await Promise.allSettled(changes.map((c) => c.run()));
+  let lastErr = null;
+  results.forEach((r, i) => { if (r.status === "rejected") { lastErr = r.reason; changes[i].undo(); } });
+  if (lastErr) { render(); toast(errMsg(lastErr), "err"); }
+  else toast("Сохранено", "ok");
 }
 
-document.querySelectorAll(".add-task-btn").forEach((btn) => btn.addEventListener("click", openNewTaskModal));
-document.getElementById("modal-save").addEventListener("click", saveModal);
-document.getElementById("modal-close").addEventListener("click", closeModal);
-document.getElementById("modal-overlay").addEventListener("click", (e) => {
-  if (e.target.id === "modal-overlay") closeModal();
-});
-document.getElementById("modal-delete").addEventListener("click", async () => {
+$("btn-add").addEventListener("click", openNewTaskModal);
+$("modal-save").addEventListener("click", saveModal);
+$("modal-close").addEventListener("click", closeModal);
+$("modal-x").addEventListener("click", closeModal);
+$("modal").addEventListener("click", (e) => { if (e.target.id === "modal") closeModal(); });
+$("modal-delete").addEventListener("click", async () => {
   const id = modalTaskId;
+  if (modalBusy || id == null) return;
   closeModal();
-  if (id != null) await deleteTask(id);
+  await deleteTask(id);
+});
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape") return;
+  if (!pop.hidden) { closePop(); return; }
+  if (!$("modal").hidden) closeModal();
 });
 
-async function setStatus(id, status) {
-  const task = tasksCache.find((t) => t.id === id);
-  if (task) task.status = status;
-  renderList(tasksCache);
-  renderBoard(tasksCache);
-  await fetch(`${API_BASE}/assistant-tasks-status?t=${encodeURIComponent(TOKEN)}&id=${id}&status=${status}`);
+// ============================================================
+// Панель действий: вкладки, фильтры, поиск, обновление
+// ============================================================
+function applyView() {
+  document.querySelectorAll(".tab").forEach((b) => b.classList.toggle("active", b.dataset.view === ui.view));
+  if ($("notice").hidden) document.querySelectorAll(".view").forEach((v) => v.classList.toggle("active", v.id === "view-" + ui.view));
+  closePop();
 }
 
-function renderList(tasks) {
-  const content = document.getElementById("content");
-  if (!tasks.length) {
-    content.className = "empty";
-    content.textContent = "Задач пока нет.";
+document.querySelectorAll(".tab").forEach((btn) => {
+  btn.addEventListener("click", () => { ui.view = btn.dataset.view; saveUi(); applyView(); });
+});
+
+$("f-status").addEventListener("change", (e) => { ui.status = e.target.value; saveUi(); render(); });
+$("f-tag").addEventListener("change", (e) => { ui.tag = e.target.value; saveUi(); render(); });
+$("f-meeting").addEventListener("change", (e) => { ui.meeting = e.target.value; saveUi(); render(); });
+
+let searchTimer = null;
+$("f-search").addEventListener("input", (e) => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => { ui.q = e.target.value; saveUi(); render(); }, 150);
+});
+
+$("btn-refresh").addEventListener("click", () => loadTasks(true));
+
+// Высота панели действий (может переноситься на две строки) — чтобы шапка таблицы прилипала под ней
+function setStick() {
+  document.documentElement.style.setProperty("--stick", (56 + $("toolbar").offsetHeight) + "px");
+}
+window.addEventListener("resize", setStick);
+
+// ============================================================
+// Загрузка списка
+// ============================================================
+function loadErrorBox(e) {
+  const btn = mkBtn("Повторить", "sm");
+  btn.addEventListener("click", () => loadTasks(false));
+  const why = e && e.status === 403 ? "Неверный токен доступа в ссылке" : "Проверьте интернет и попробуйте ещё раз";
+  return emptyBox("i-alert", "Не удалось загрузить задачи", why, btn);
+}
+
+async function loadTasks(manual) {
+  if (!TOKEN) {
+    showNotice(emptyBox("i-alert", "Нет токена доступа", "Откройте страницу по ссылке с параметром ?t=…"));
     return;
   }
-
-  const sorted = [...tasks].sort(byNewest);
-
-  content.className = "";
-  content.innerHTML = "";
-
-  const buildRows = (items) => {
-    const list = document.createElement("div");
-    list.className = "task-list";
-    for (const t of items) {
-      const row = document.createElement("div");
-      row.className = "task-row" + (t.status === "done" ? " status-done" : "");
-      const time = document.createElement("span");
-      time.className = "time";
-      time.textContent = formatDate(t.created_at);
-      const textWrap = document.createElement("span");
-      textWrap.className = "text";
-      textWrap.textContent = t.text;
-      textWrap.title = "Открыть задачу";
-      textWrap.addEventListener("click", () => openTaskModal(t.id));
-      row.appendChild(time);
-      row.appendChild(textWrap);
-      if (t.meeting_name) {
-        const pill = document.createElement("span");
-        pill.className = "meeting-pill";
-        pill.textContent = t.meeting_name;
-        pill.title = "Совещание: " + t.meeting_name + (t.meeting_date ? " (" + formatDate(t.meeting_date) + ")" : "");
-        row.appendChild(pill);
-      }
-      row.appendChild(buildTagsCell(t));
-      const del = document.createElement("button");
-      del.className = "del-btn";
-      del.textContent = "✕";
-      del.title = "Удалить";
-      del.addEventListener("click", (e) => { e.stopPropagation(); deleteTask(t.id); });
-      row.appendChild(del);
-      list.appendChild(row);
-    }
-    return list;
-  };
-
-  const active = sorted.filter((t) => t.status !== "done");
-  const done = sorted.filter((t) => t.status === "done");
-
-  if (active.length) content.appendChild(buildRows(active));
-  if (done.length) {
-    const title = document.createElement("div");
-    title.className = "group-title";
-    title.textContent = "Готовые";
-    content.appendChild(title);
-    const visible = doneExpanded ? done : done.slice(0, DONE_VISIBLE);
-    content.appendChild(buildRows(visible));
-    if (done.length > DONE_VISIBLE) content.appendChild(buildDoneToggle(done.length - DONE_VISIBLE));
+  const st = $("updated");
+  const btn = $("btn-refresh");
+  btn.disabled = true;
+  if (loaded) st.textContent = "Обновляю…";
+  else {
+    const box = document.createElement("div");
+    box.className = "empty";
+    box.textContent = "Загружаю…";
+    showNotice(box);
+  }
+  try {
+    const res = await api("assistant-tasks");
+    const data = await res.json();
+    tasksCache = Array.isArray(data) ? data : [];
+    loaded = true;
+    showNotice(null);
+    render();
+    st.textContent = "Обновлено " + timeNow();
+    if (manual) toast("Список обновлён");
+  } catch (e) {
+    if (!loaded) showNotice(loadErrorBox(e));
+    else { st.textContent = "Не обновлено"; toast(errMsg(e, "Не удалось обновить список. Проверьте интернет и попробуйте ещё раз"), "err"); }
+  } finally {
+    btn.disabled = false;
   }
 }
 
-function renderBoard(tasks) {
-  const board = document.getElementById("board");
-  board.innerHTML = "";
-  for (const status of STATUS_ORDER) {
-    const column = document.createElement("div");
-    column.className = "column";
-    column.dataset.status = status;
-
-    const title = document.createElement("div");
-    title.className = "column-title";
-    title.textContent = STATUS_LABELS[status];
-    column.appendChild(title);
-
-    let columnTasks = tasks.filter((x) => x.status === status);
-    let hiddenDone = 0;
-    if (status === "done") {
-      columnTasks = [...columnTasks].sort(byNewest);
-      if (!doneExpanded && columnTasks.length > DONE_VISIBLE) {
-        hiddenDone = columnTasks.length - DONE_VISIBLE;
-        columnTasks = columnTasks.slice(0, DONE_VISIBLE);
-      }
-    }
-    for (const t of columnTasks) {
-      const card = document.createElement("div");
-      card.className = "card";
-      card.draggable = true;
-      card.dataset.id = t.id;
-
-      const textWrap = document.createElement("div");
-      textWrap.className = "card-text";
-      textWrap.textContent = t.text;
-      textWrap.title = "Открыть задачу";
-      textWrap.addEventListener("click", () => openTaskModal(t.id));
-      const meta = document.createElement("div");
-      meta.className = "card-meta";
-      const when = document.createElement("span");
-      when.textContent = formatDate(t.created_at);
-      meta.appendChild(when);
-      appendTagPills(meta, t);
-      if (t.meeting_name) {
-        const pill = document.createElement("span");
-        pill.className = "meeting-pill";
-        pill.textContent = t.meeting_name;
-        pill.title = "Совещание: " + t.meeting_name + (t.meeting_date ? " (" + formatDate(t.meeting_date) + ")" : "");
-        meta.appendChild(pill);
-      }
-      textWrap.appendChild(meta);
-
-      const del = document.createElement("button");
-      del.className = "del-btn";
-      del.textContent = "✕";
-      del.title = "Удалить";
-      del.addEventListener("click", (e) => { e.stopPropagation(); deleteTask(t.id); });
-
-      card.appendChild(textWrap);
-      card.appendChild(del);
-
-      card.addEventListener("dragstart", () => {
-        card.classList.add("dragging");
-        card.dataset.dragging = "1";
-      });
-      card.addEventListener("dragend", () => {
-        card.classList.remove("dragging");
-      });
-
-      column.appendChild(card);
-    }
-
-    if (status === "done" && (hiddenDone > 0 || (doneExpanded && columnTasks.length > DONE_VISIBLE))) {
-      column.appendChild(buildDoneToggle(hiddenDone));
-    }
-
-    column.addEventListener("dragover", (e) => {
-      e.preventDefault();
-      column.classList.add("drag-over");
-    });
-    column.addEventListener("dragleave", () => {
-      column.classList.remove("drag-over");
-    });
-    column.addEventListener("drop", (e) => {
-      e.preventDefault();
-      column.classList.remove("drag-over");
-      const dragging = board.querySelector(".card.dragging");
-      if (!dragging) return;
-      const id = Number(dragging.dataset.id);
-      setStatus(id, status);
-    });
-
-    board.appendChild(column);
-  }
-}
-
-document.querySelectorAll(".tab-btn").forEach((btn) => {
-  btn.addEventListener("click", () => {
-    document.querySelectorAll(".tab-btn").forEach((b) => b.classList.remove("active"));
-    document.querySelectorAll(".view").forEach((v) => v.classList.remove("active"));
-    btn.classList.add("active");
-    document.getElementById(`view-${btn.dataset.view}`).classList.add("active");
-  });
-});
-
-loadTasks();
+// Старт
+syncFilterControls();
+applyView();
+setStick();
+loadTasks(false);
 </script>
 </body>
 </html>
