@@ -72,6 +72,8 @@ main{max-width:1400px;margin:0 auto;padding:24px}
 .view{display:none}
 .view.active{display:block}
 .more{margin-top:8px;text-align:center}
+.quick{display:flex;gap:10px;margin-bottom:20px}
+.quick input{flex:1}
 
 /* ---------- Кнопки ---------- */
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:var(--h);padding:0 16px;font-family:inherit;font-size:14px;font-weight:600;line-height:1;color:var(--text2);background:var(--panel);border:1px solid var(--border2);border-radius:var(--r);cursor:pointer;white-space:nowrap;box-shadow:var(--shadow-sm);transition:background .12s,border-color .12s}
@@ -85,6 +87,8 @@ main{max-width:1400px;margin:0 auto;padding:24px}
 .btn.ghost:hover{background:var(--acc-soft)}
 .btn.ghost.del{color:var(--muted)}
 .btn.ghost.del:hover{background:var(--bad-bg);color:var(--bad)}
+.btn.ghost.sec{color:var(--muted)}
+.btn.ghost.sec:hover{background:var(--panel3);color:var(--text)}
 .btn.sm{height:var(--h-sm);padding:0 12px;font-size:13px}
 .btn.icon{width:var(--h);padding:0}
 .btn.icon.sm{width:var(--h-sm)}
@@ -123,7 +127,9 @@ td.sec{color:var(--text2)}
 td.act{text-align:right;width:1%}
 td.task{white-space:normal;word-break:break-word;min-width:280px;font-weight:500;cursor:pointer;padding-top:10px;padding-bottom:10px}
 td.task:hover{color:var(--acc-h)}
-tr.done td.task{text-decoration:line-through;color:var(--muted);font-weight:400}
+tr.done td.task{color:var(--muted);font-weight:400}
+tr.done td.task .t{text-decoration:line-through}
+.note{display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden;font-size:13px;font-weight:400;line-height:1.4;color:var(--muted);margin-top:2px;word-break:break-word}
 td.tags-cell{white-space:normal;min-width:180px;max-width:280px;cursor:pointer;padding-top:8px;padding-bottom:8px}
 td.meeting{max-width:200px;overflow:hidden;text-overflow:ellipsis}
 td.created{font-variant-numeric:tabular-nums}
@@ -163,6 +169,7 @@ button.pill:hover{border-color:currentColor}
 
 /* ---------- Канбан ---------- */
 .board{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;align-items:start}
+.board.archive{display:block}
 .column{background:var(--panel3);border-radius:var(--r-lg);padding:12px;min-height:200px}
 .column.drag-over{outline:2px dashed var(--acc);outline-offset:-2px}
 .col-head{display:flex;align-items:center;gap:8px;padding:2px 4px 10px;font-size:15px;font-weight:600}
@@ -173,6 +180,7 @@ button.pill:hover{border-color:currentColor}
 .kcard .k-text{cursor:pointer;white-space:pre-wrap;word-break:break-word;font-weight:500}
 .kcard .k-text:hover{color:var(--acc-h)}
 .kcard.done .k-text{text-decoration:line-through;color:var(--muted);font-weight:400}
+.kcard .note{cursor:pointer;margin-top:4px}
 .kcard .tags{margin-top:8px}
 .kcard .k-meta{display:flex;gap:4px 12px;flex-wrap:wrap;margin-top:8px;font-size:13px;color:var(--muted)}
 .kcard .k-actions{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;align-items:center}
@@ -239,10 +247,11 @@ button.pill:hover{border-color:currentColor}
     <option value="open">Открыта</option>
     <option value="in_progress">В работе</option>
     <option value="done">Готово</option>
+    <option value="archived">Архив</option>
   </select>
   <select id="f-tag" title="Тег"><option value="">Все теги</option></select>
   <select id="f-meeting" title="Совещание"><option value="">Все совещания</option></select>
-  <div class="search"><svg class="ic"><use href="#i-search"/></svg><input type="search" id="f-search" placeholder="Поиск по тексту задачи"></div>
+  <div class="search"><svg class="ic"><use href="#i-search"/></svg><input type="search" id="f-search" placeholder="Поиск по задачам и заметкам"></div>
   <div class="spacer"></div>
   <span class="status" id="updated"></span>
   <button class="btn icon" id="btn-refresh" title="Обновить"><svg class="ic"><use href="#i-refresh"/></svg></button>
@@ -253,6 +262,12 @@ button.pill:hover{border-color:currentColor}
   <div class="page-head">
     <div><h1>Задачи</h1><div class="sub" id="subtitle"></div></div>
   </div>
+
+  <!-- Быстрое добавление: Enter или кнопка -->
+  <form class="quick" id="quick" hidden>
+    <input type="text" id="quick-text" placeholder="Новая задача: введите текст и нажмите Enter" autocomplete="off">
+    <button class="btn" type="submit" id="quick-add">Добавить</button>
+  </form>
 
   <div id="notice" hidden></div>
 
@@ -274,12 +289,14 @@ button.pill:hover{border-color:currentColor}
     <div class="m-head"><h2 id="modal-title">Задача</h2><button class="x" id="modal-x" title="Закрыть"><svg class="ic"><use href="#i-x"/></svg></button></div>
     <div class="m-body">
       <div class="field"><label for="modal-text">Текст задачи <span class="req">*</span></label><textarea id="modal-text" placeholder="Например: подготовить акт по СБ3"></textarea></div>
+      <div class="field"><label for="modal-notes">Заметки</label><textarea id="modal-notes" rows="4" maxlength="2000" placeholder="Детали, ссылки, результат"></textarea></div>
       <div class="form-row">
         <div class="field"><label for="modal-status">Статус</label>
           <select id="modal-status">
             <option value="open">Открыта</option>
             <option value="in_progress">В работе</option>
             <option value="done">Готово</option>
+            <option value="archived">Архив</option>
           </select>
         </div>
         <div class="field"><label for="modal-tags">Теги</label><input id="modal-tags" list="tags-suggest" placeholder="СБ3, КЛАД"><div class="hint">Через запятую</div></div>
@@ -288,7 +305,9 @@ button.pill:hover{border-color:currentColor}
       <div id="modal-meta-wrap"><div class="group-label">Служебное</div><div class="meta" id="modal-meta"></div></div>
     </div>
     <div class="m-foot">
-      <button class="btn danger" id="modal-delete">Удалить</button>
+      <button class="btn" id="modal-archive">В архив</button>
+      <button class="btn danger" id="modal-delete">Удалить навсегда</button>
+      <button class="btn" id="modal-restore">Восстановить</button>
       <span class="spacer"></span>
       <button class="btn" id="modal-close">Отмена</button>
       <button class="btn pri" id="modal-save">Сохранить</button>
@@ -303,9 +322,10 @@ button.pill:hover{border-color:currentColor}
 // Настройки и состояние
 // ============================================================
 const API_BASE = "https://hub.xn--80aamvb5b.team/webhook";
-const STATUS_LABELS = { open: "Открыта", in_progress: "В работе", done: "Готово" };
-const STATUS_ORDER = ["open", "in_progress", "done"];
-const STATUS_PILL = { open: "", in_progress: "warn", done: "ok" };
+const STATUS_LABELS = { open: "Открыта", in_progress: "В работе", done: "Готово", archived: "Архив" };
+const STATUS_ORDER = ["open", "in_progress", "done", "archived"];
+const BOARD_COLUMNS = ["open", "in_progress", "done"]; // архив в колонку канбана не попадает
+const STATUS_PILL = { open: "", in_progress: "warn", done: "ok", archived: "" };
 const DONE_VISIBLE = 10;
 const UI_KEY = "assistant-tasks:ui";
 
@@ -358,6 +378,17 @@ function createdTs(t) {
 
 function byNewest(a, b) {
   return createdTs(b) - createdTs(a) || (b.id || 0) - (a.id || 0);
+}
+
+// Режим «Архив»: в фильтре статуса выбран archived — показываем только архивные
+function isArchiveMode() {
+  return ui.status === "archived";
+}
+
+// Первая непустая строка заметки — для признака в таблице и на карточке
+function noteLine(t) {
+  for (const l of String(t.notes || "").split(/\r?\n/)) { const s = l.trim(); if (s) return s; }
+  return "";
 }
 
 function parseTags(str) {
@@ -460,15 +491,17 @@ function errMsg(e, fallback) {
 function applyFilters(tasks) {
   const q = ui.q.trim().toLowerCase();
   const tagQ = ui.tag.toLowerCase();
+  const archive = isArchiveMode();
   return tasks.filter((t) => {
-    if (ui.status && t.status !== ui.status) return false;
+    if ((t.status === "archived") !== archive) return false;
+    if (ui.status && !archive && t.status !== ui.status) return false;
     if (tagQ && !parseTags(t.tags).some((x) => x.toLowerCase() === tagQ)) return false;
     if (ui.meeting) {
       const has = t.meeting_id != null && t.meeting_id !== "";
       if (ui.meeting === "none") { if (has) return false; }
       else if (!has || String(t.meeting_id) !== ui.meeting) return false;
     }
-    if (q && !String(t.text || "").toLowerCase().includes(q)) return false;
+    if (q && !String(t.text || "").toLowerCase().includes(q) && !String(t.notes || "").toLowerCase().includes(q)) return false;
     return true;
   });
 }
@@ -550,7 +583,9 @@ function render() {
   const filtered = applyFilters(tasksCache).sort(compareTasks);
   refreshFilterOptions();
   refreshTagSuggest();
-  $("subtitle").textContent = loaded ? `Показано ${filtered.length} из ${tasksCache.length}` : "";
+  const archive = isArchiveMode();
+  const total = tasksCache.filter((t) => (t.status === "archived") === archive).length;
+  $("subtitle").textContent = loaded ? `Показано ${filtered.length} из ${total}` : "";
   renderList(filtered);
   renderBoard(filtered);
 }
@@ -560,6 +595,7 @@ function showNotice(node) {
   n.innerHTML = "";
   if (node) { n.appendChild(node); n.hidden = false; }
   else n.hidden = true;
+  $("quick").hidden = !!node;
   document.querySelectorAll(".view").forEach((v) => v.classList.toggle("active", !node && v.id === "view-" + ui.view));
 }
 
@@ -594,6 +630,27 @@ function buildTagsInto(container, task) {
     const s = document.createElement("span"); s.textContent = tag; el.appendChild(s);
     el.title = tag;
     container.appendChild(el);
+  }
+}
+
+// Признак заметки под текстом задачи (одна строка, без раскрытия)
+function appendNote(container, t, clickable) {
+  const line = noteLine(t);
+  if (!line) return;
+  const div = document.createElement("div");
+  div.className = "note";
+  div.textContent = line;
+  if (clickable) { div.dataset.act = "open"; div.title = "Открыть задачу"; }
+  container.appendChild(div);
+}
+
+// Кнопки в строке таблицы и на карточке: «В архив», для архивных — «Восстановить» и «Удалить навсегда»
+function appendRowActions(container, t) {
+  if (t.status === "archived") {
+    container.appendChild(mkBtn("Восстановить", "ghost sm", "restore"));
+    container.appendChild(mkBtn("Удалить навсегда", "ghost sm del", "delete"));
+  } else {
+    container.appendChild(mkBtn("В архив", "ghost sm sec", "archive"));
   }
 }
 
@@ -644,7 +701,11 @@ function buildTable(items) {
 
     const tdText = document.createElement("td");
     tdText.className = "task";
-    tdText.textContent = t.text || "";
+    const tt = document.createElement("span");
+    tt.className = "t";
+    tt.textContent = t.text || "";
+    tdText.appendChild(tt);
+    appendNote(tdText, t, false);
     tdText.title = "Открыть задачу";
     tdText.dataset.act = "open";
     tr.appendChild(tdText);
@@ -681,7 +742,7 @@ function buildTable(items) {
 
     const tdAct = document.createElement("td");
     tdAct.className = "act";
-    tdAct.appendChild(mkBtn("Удалить", "ghost sm del", "delete"));
+    appendRowActions(tdAct, t);
     tr.appendChild(tdAct);
 
     tbody.appendChild(tr);
@@ -706,6 +767,9 @@ function renderList(filtered) {
     content.appendChild(emptyBox("i-search", "По фильтру ничего не найдено", "Измените условия поиска или сбросьте фильтры", btn));
     return;
   }
+
+  // Режим «Архив»: одна таблица, без группы «Готовые»
+  if (isArchiveMode()) { content.appendChild(buildTable(filtered)); return; }
 
   const active = filtered.filter((t) => t.status !== "done");
   const done = filtered.filter((t) => t.status === "done");
@@ -740,6 +804,8 @@ $("content").addEventListener("click", (e) => {
   const act = actEl.dataset.act;
   if (act === "open") openTaskModal(id);
   else if (act === "delete") deleteTask(id);
+  else if (act === "archive") setStatus(id, "archived", "Задача в архиве");
+  else if (act === "restore") setStatus(id, "open", "Задача восстановлена");
   else if (act === "status") { e.stopPropagation(); toggleStatusMenu(id, actEl); }
   else if (act === "tags") { e.stopPropagation(); toggleTagsMenu(id, actEl); }
 });
@@ -756,7 +822,16 @@ function renderBoard(filtered) {
   board.innerHTML = "";
   if (!loaded) return;
 
-  for (const status of STATUS_ORDER) {
+  // Режим «Архив»: колонок нет, архив смотрят в списке
+  board.classList.toggle("archive", isArchiveMode());
+  if (isArchiveMode()) {
+    const btn = mkBtn("Открыть список", "sm");
+    btn.addEventListener("click", () => { ui.view = "list"; saveUi(); applyView(); });
+    board.appendChild(emptyBox("i-inbox", "Архив смотрите в списке", "В канбане архивные задачи не показываются", btn));
+    return;
+  }
+
+  for (const status of BOARD_COLUMNS) {
     const column = document.createElement("div");
     column.className = "column";
     column.dataset.status = status;
@@ -795,6 +870,7 @@ function renderBoard(filtered) {
       text.title = "Открыть задачу";
       text.dataset.act = "open";
       card.appendChild(text);
+      appendNote(card, t, true);
 
       if (parseTags(t.tags).length) {
         const tags = document.createElement("div");
@@ -822,7 +898,7 @@ function renderBoard(filtered) {
       actions.className = "k-actions";
       for (const b of NEXT_BUTTONS[t.status] || []) actions.appendChild(mkBtn(b.label, "sm", "status", { status: b.status }));
       const sp = document.createElement("span"); sp.className = "spacer"; actions.appendChild(sp);
-      actions.appendChild(mkBtn("Удалить", "ghost sm del", "delete"));
+      appendRowActions(actions, t);
       card.appendChild(actions);
 
       card.addEventListener("dragstart", () => { card.classList.add("dragging"); closePop(); });
@@ -858,6 +934,8 @@ $("board").addEventListener("click", (e) => {
   const act = actEl.dataset.act;
   if (act === "open") openTaskModal(id);
   else if (act === "delete") deleteTask(id);
+  else if (act === "archive") setStatus(id, "archived", "Задача в архиве");
+  else if (act === "restore") setStatus(id, "open", "Задача восстановлена");
   else if (act === "status") setStatus(id, actEl.dataset.status);
   else if (act === "tags") { e.stopPropagation(); toggleTagsMenu(id, actEl); }
 });
@@ -987,7 +1065,8 @@ async function saveTags(task, tagsArr) {
   }
 }
 
-async function setStatus(id, status) {
+// okMsg — текст тоста при успехе (по умолчанию «Статус изменён», для архива — «Задача в архиве»)
+async function setStatus(id, status, okMsg) {
   const task = tasksCache.find((t) => t.id === id);
   if (!task || !STATUS_LABELS[status] || task.status === status) return;
   const prev = { status: task.status, done_at: task.done_at };
@@ -996,7 +1075,7 @@ async function setStatus(id, status) {
   render();
   try {
     await api("assistant-tasks-status", { id, status });
-    toast("Статус изменён", "ok");
+    toast(okMsg || (status === "archived" ? "Задача в архиве" : "Статус изменён"), "ok");
   } catch (e) {
     Object.assign(task, prev);
     render();
@@ -1007,7 +1086,7 @@ async function setStatus(id, status) {
 async function deleteTask(id) {
   const idx = tasksCache.findIndex((t) => t.id === id);
   if (idx < 0) return;
-  if (!confirm("Удалить задачу без возможности восстановить?")) return;
+  if (!confirm("Удалить задачу навсегда? Восстановить будет нельзя.")) return;
   closePop();
   const task = tasksCache[idx];
   tasksCache.splice(idx, 1);
@@ -1043,6 +1122,14 @@ function fillModalMeta(task) {
   }
 }
 
+// Подвал окна: обычной задаче — «В архив»; архивной — «Удалить навсегда» и «Восстановить»; новой — ничего
+function setModalFootButtons(task) {
+  const archived = !!task && task.status === "archived";
+  $("modal-archive").hidden = !task || archived;
+  $("modal-restore").hidden = !archived;
+  $("modal-delete").hidden = !archived;
+}
+
 function showModal() {
   closePop();
   $("modal").hidden = false;
@@ -1055,9 +1142,10 @@ function openTaskModal(id) {
   modalTaskId = id;
   modalIsNew = false;
   $("modal-title").textContent = "Задача";
-  $("modal-delete").hidden = false;
+  setModalFootButtons(task);
   $("modal-meta-wrap").hidden = false;
   $("modal-text").value = task.text || "";
+  $("modal-notes").value = task.notes || "";
   $("modal-status").value = task.status || "open";
   $("modal-tags").value = parseTags(task.tags).join(", ");
   refreshTagSuggest();
@@ -1069,9 +1157,10 @@ function openNewTaskModal() {
   modalTaskId = null;
   modalIsNew = true;
   $("modal-title").textContent = "Новая задача";
-  $("modal-delete").hidden = true;
+  setModalFootButtons(null);
   $("modal-meta-wrap").hidden = true;
   $("modal-text").value = "";
+  $("modal-notes").value = "";
   $("modal-status").value = "open";
   $("modal-tags").value = "";
   refreshTagSuggest();
@@ -1092,6 +1181,8 @@ function setModalBusy(busy) {
   b.textContent = busy ? "Сохраняю…" : "Сохранить";
   $("modal-close").disabled = busy;
   $("modal-delete").disabled = busy;
+  $("modal-archive").disabled = busy;
+  $("modal-restore").disabled = busy;
 }
 
 async function saveModal() {
@@ -1099,6 +1190,7 @@ async function saveModal() {
   const newText = $("modal-text").value.trim();
   const newStatus = $("modal-status").value;
   const newTags = parseTags($("modal-tags").value).join(", ");
+  const newNotes = $("modal-notes").value.trim();
 
   if (modalIsNew) {
     if (!newText) { $("modal-text").focus(); return; }
@@ -1120,6 +1212,7 @@ async function saveModal() {
     tasksCache.unshift(created);
     if (newStatus !== "open") created.status = newStatus;
     if (newTags) created.tags = newTags;
+    if (newNotes) created.notes = newNotes;
     render();
     toast("Задача добавлена", "ok");
 
@@ -1130,10 +1223,13 @@ async function saveModal() {
     if (newTags) {
       followUps.push(api("assistant-tasks-tags", { id: created.id, tags: newTags }).catch((e) => { created.tags = ""; throw e; }));
     }
+    if (newNotes) {
+      followUps.push(api("assistant-tasks-notes", { id: created.id, notes: newNotes }).catch((e) => { created.notes = ""; throw e; }));
+    }
     if (followUps.length) {
       const results = await Promise.allSettled(followUps);
       const failed = results.find((r) => r.status === "rejected");
-      if (failed) { render(); toast(errMsg(failed.reason, "Задача добавлена, но статус или теги не сохранились: нет связи"), "err"); }
+      if (failed) { render(); toast(errMsg(failed.reason, "Задача добавлена, но статус, теги или заметки не сохранились: нет связи"), "err"); }
     }
     return;
   }
@@ -1159,6 +1255,11 @@ async function saveModal() {
     task.tags = newTags;
     changes.push({ run: () => api("assistant-tasks-tags", { id, tags: newTags }), undo: () => { task.tags = prev; } });
   }
+  if (newNotes !== String(task.notes || "")) {
+    const prev = task.notes;
+    task.notes = newNotes;
+    changes.push({ run: () => api("assistant-tasks-notes", { id, notes: newNotes }), undo: () => { task.notes = prev; } });
+  }
 
   closeModal();
   if (!changes.length) return;
@@ -1181,6 +1282,48 @@ $("modal-delete").addEventListener("click", async () => {
   closeModal();
   await deleteTask(id);
 });
+$("modal-archive").addEventListener("click", () => {
+  const id = modalTaskId;
+  if (modalBusy || id == null) return;
+  closeModal();
+  setStatus(id, "archived", "Задача в архиве");
+});
+$("modal-restore").addEventListener("click", () => {
+  const id = modalTaskId;
+  if (modalBusy || id == null) return;
+  closeModal();
+  setStatus(id, "open", "Задача восстановлена");
+});
+
+// ============================================================
+// Быстрое добавление: Enter или кнопка «Добавить», без окна
+// ============================================================
+async function quickAdd() {
+  const inp = $("quick-text");
+  const btn = $("quick-add");
+  const text = inp.value.trim();
+  if (!text || inp.disabled) return;
+  inp.disabled = true;
+  btn.disabled = true;
+  try {
+    // Создание не повторяем автоматически: повтор мог бы завести задачу дважды
+    const res = await api("assistant-tasks-create", { text }, { retries: 0 });
+    const data = await res.json();
+    const created = Array.isArray(data) ? data[0] : data;
+    if (!created || created.id == null) throw new Error("Пустой ответ");
+    tasksCache.unshift(created);
+    inp.value = "";
+    render();
+    toast("Задача добавлена", "ok");
+  } catch (e) {
+    toast(errMsg(e, "Не удалось добавить задачу. Проверьте интернет и нажмите Enter ещё раз"), "err");
+  } finally {
+    inp.disabled = false;
+    btn.disabled = false;
+    inp.focus({ preventScroll: true });
+  }
+}
+$("quick").addEventListener("submit", (e) => { e.preventDefault(); quickAdd(); });
 document.addEventListener("keydown", (e) => {
   if (e.key !== "Escape") return;
   if (!pop.hidden) { closePop(); return; }
