@@ -90,8 +90,10 @@ Telegram Trigger → Owner only (IF: from.id = 325113969) → Classify (Code: о
   Docker-операции (пересоздание контейнеров, новые сети) могут на секунды сбить его
   iptables. После любых изменений на этом сервере — `docker restart amnezia-awg` и
   проверка NAT-правила (см. `../n8n-hub/CLAUDE.md`).
-- Вебхук Telegram работает через `https://hub.каскад.team` (Cloudflare перед сервером
-  терминирует HTTPS) — то же, что использует бот Acifrui.
+- Вебхук Telegram и страница задач работают через `https://hub.каскад.team` — HTTPS даёт
+  Caddy на самом сервере (не Cloudflare), сертификат Let's Encrypt продлевается сам; то же
+  использует бот Acifrui. Если страница пишет «Не удалось загрузить задачи», а n8n жив —
+  первым делом проверить срок сертификата (инцидент 2026-10-19, см. `../n8n-hub/docs/сервер.md`).
 - Смотреть данные в базе можно так:
   ```
   ssh root@5.129.228.135 "docker exec tasks-db psql -U tasksbot -d tasksdb -c 'SELECT * FROM tasks ORDER BY id DESC LIMIT 20;'"
